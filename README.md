@@ -1,0 +1,139 @@
+# 🧹 Git Broom
+
+A safety-first CLI tool to automatically clean up stale branches, prune dangling Git objects, and keep your repositories tidy.
+
+## Features
+
+- **Dry-run by default** — see what would happen before any changes are made
+- **Protected branches** — never delete `main`, `master`, `develop`, or custom patterns
+- **Safety guards** — current branch is always skipped, confirmation prompts before deletion
+- **Stale branch detection** — configurable inactivity threshold (default: 90 days)
+- **Dangling object pruning** — clean up unreachable commits, trees, and blobs
+- **Repository status report** — quick overview of branch hygiene and `.git` size
+
+## Installation
+
+```bash
+npm install -g git-broom
+```
+
+Or run locally from the project:
+
+```bash
+npm run dev -- [command]
+```
+
+## Usage
+
+```bash
+git-broom status          # Show repository hygiene report
+git-broom clean           # Clean stale branches (dry-run by default)
+git-broom branches        # List branches by state
+git-broom objects         # Inspect dangling objects
+```
+
+### Global Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--repo <path>` | Target repository directory | `cwd` |
+| `--dry-run` | Show what would happen | `true` |
+| `--no-dry-run` | Apply changes | — |
+| `--yes` | Skip confirmation prompts | `false` |
+| `--aggressive` | Deep clean with aggressive GC | `false` |
+| `--verbose` | Show debug output | `false` |
+
+### Commands
+
+#### `status`
+
+Show a quick report of your repository's health:
+
+```
+🧹 Repository Status
+────────────────────────────────────────
+Current branch         main
+Total branches         12
+Merged branches        5
+Stale branches (>90d)  3
+Dangling objects       47
+Remotes                origin
+.git size              15.2 MB
+```
+
+#### `clean`
+
+Orchestrate a full cleanup:
+
+1. Prune remote tracking branches
+2. Delete merged local branches
+3. Delete stale branches (configurable days)
+4. Run garbage collection
+
+```bash
+git-broom clean                    # Dry run (default)
+git-broom clean --no-dry-run       # Apply changes
+git-broom clean --yes              # Skip confirmation
+git-broom clean --stale-days 30    # Custom stale threshold
+git-broom clean --aggressive       # Aggressive GC
+```
+
+#### `branches`
+
+List branches categorized by state:
+
+```bash
+git-broom branches                 # All branches
+git-broom branches --merged        # Only merged
+git-broom branches --stale         # Only stale
+git-broom branches --stale-days 60 # Custom threshold
+```
+
+#### `objects`
+
+Inspect and prune dangling Git objects:
+
+```bash
+git-broom objects                  # Show dangling objects
+git-broom objects --prune          # Remove them
+git-broom objects --prune --aggressive  # Aggressive cleanup
+```
+
+## Configuration
+
+Create a `.gitbroomrc` file in your repository or home directory:
+
+```json
+{
+  "protectedBranches": ["main", "master", "develop", "release-*"],
+  "staleDays": 60,
+  "dryRun": true,
+  "aggressive": false,
+  "skipConfirmation": false,
+  "verbose": false
+}
+```
+
+## Safety
+
+Git Broom is designed with safety as the top priority:
+
+- **Dry-run is the default** — nothing is deleted unless you explicitly use `--no-dry-run`
+- **Protected branches** — `main`, `master`, `develop`, and user-configured patterns are never deleted
+- **Current branch** — the checked-out branch is always skipped
+- **Confirmation prompts** — interactive confirmation before any deletion (skip with `--yes`)
+- **Remote pruning** — remote tracking branches are pruned before evaluating staleness
+
+## Development
+
+```bash
+npm install          # Install dependencies
+npm run dev -- help  # Run in development mode
+npm run build        # Build for production
+npm run typecheck    # TypeScript type checking
+npm test             # Run tests
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE)
