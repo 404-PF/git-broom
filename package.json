@@ -16,7 +16,25 @@
     "lint": "eslint src",
     "format": "prettier --write src",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepack": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/404-PF/git-broom.git"
+  },
+  "author": "404-PF",
+  "keywords": [
+    "git",
+    "cleanup",
+    "cli",
+    "branches",
+    "maintenance",
+    "prune"
+  ],
+  "homepage": "https://github.com/404-PF/git-broom#readme",
+  "bugs": {
+    "url": "https://github.com/404-PF/git-broom/issues"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",
