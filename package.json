@@ -1,5 +1,5 @@
 {
-  "name": "git-broom",
+  "name": "@404-pf/git-broom",
   "version": "0.1.0",
   "description": "A safety-first CLI tool to clean up stale branches, prune dangling Git objects, and keep your repositories tidy.",
   "type": "module",
