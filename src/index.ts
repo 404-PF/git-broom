@@ -1,6 +1,7 @@
-import { Command } from 'commander'
+import { Command, InvalidArgumentError } from 'commander'
 import { resolveConfig } from './core/config.js'
 import { isGitRepo } from './core/git.js'
+import { parsePositiveInteger } from './core/validation.js'
 import { logger } from './utils/logger.js'
 import { statusCommand } from './commands/status.js'
 import { cleanCommand } from './commands/clean.js'
@@ -8,6 +9,15 @@ import { branchesCommand } from './commands/branches.js'
 import { objectsCommand } from './commands/objects.js'
 
 const program = new Command()
+
+function parseStaleDays(value: string): number {
+  try {
+    return parsePositiveInteger(value, 'stale-days')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'stale-days must be a positive integer'
+    throw new InvalidArgumentError(message)
+  }
+}
 
 program
   .name('git-broom')
@@ -38,7 +48,7 @@ program
 program
   .command('clean')
   .description('Clean stale branches and prune objects')
-  .option('--stale-days <days>', 'Days of inactivity to consider a branch stale')
+  .option('--stale-days <days>', 'Days of inactivity to consider a branch stale', parseStaleDays)
   .action(async (opts, cmd) => {
     const parentOpts = cmd.parent.opts()
     const config = resolveConfig(parentOpts.repo, {
@@ -46,8 +56,8 @@ program
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
-      staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
-    } as any)
+      staleDays: opts.staleDays,
+    })
     await ensureGitRepo(parentOpts.repo)
     await cleanCommand(config, parentOpts.repo)
   })
@@ -57,7 +67,7 @@ program
   .description('List and manage branches by state')
   .option('--merged', 'Show only merged branches')
   .option('--stale', 'Show only stale branches')
-  .option('--stale-days <days>', 'Days of inactivity to consider a branch stale')
+  .option('--stale-days <days>', 'Days of inactivity to consider a branch stale', parseStaleDays)
   .action(async (opts, cmd) => {
     const parentOpts = cmd.parent.opts()
     const config = resolveConfig(parentOpts.repo, {
@@ -65,15 +75,15 @@ program
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
-      staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
-    } as any)
+      staleDays: opts.staleDays,
+    })
     await ensureGitRepo(parentOpts.repo)
     await branchesCommand(
       config,
       {
         merged: opts.merged,
         stale: opts.stale,
-        staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
+        staleDays: opts.staleDays,
       },
       parentOpts.repo,
     )

@@ -2,6 +2,7 @@ import { execa } from 'execa'
 import { statSync, readdirSync } from 'fs'
 import { join } from 'path'
 import type { GitBranch, DanglingObject } from '../types/index.js'
+import { assertPositiveInteger } from './validation.js'
 
 export async function git(args: string[], cwd?: string) {
   const { stdout } = await execa('git', args, { cwd })
@@ -96,6 +97,7 @@ export async function getMergedBranches(cwd?: string): Promise<string[]> {
 }
 
 export async function getStaleBranches(days: number, cwd?: string): Promise<GitBranch[]> {
+  assertPositiveInteger(days, 'days')
   const branches = await getLocalBranches(cwd)
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days)
