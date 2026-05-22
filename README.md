@@ -14,7 +14,7 @@ A safety-first CLI tool to automatically clean up stale branches, prune dangling
 ## Installation
 
 ```bash
-npm install -g git-broom
+npm install -g @404-pf/git-broom
 ```
 
 Or run locally from the project:
@@ -80,7 +80,7 @@ git-broom clean --aggressive       # Aggressive GC
 
 #### `branches`
 
-List branches categorized by state:
+List branches categorized by state with name, status, last commit, and subject:
 
 ```bash
 git-broom branches                 # All branches
@@ -88,6 +88,8 @@ git-broom branches --merged        # Only merged
 git-broom branches --stale         # Only stale
 git-broom branches --stale-days 60 # Custom threshold
 ```
+
+Use `--merged` to filter for branches already merged into HEAD, and `--stale` to filter for branches with no commits within the stale threshold (default: 90 days). With no filters, branches are categorized as **merged**, **stale**, **active**, or **protected**.
 
 #### `objects`
 
@@ -131,6 +133,8 @@ npm install          # Install dependencies
 npm run dev -- help  # Run in development mode
 npm run build        # Build for production
 npm run typecheck    # TypeScript type checking
+npm run lint         # ESLint
+npm run format       # Prettier formatting
 npm test             # Run tests
 ```
 

@@ -52,9 +52,9 @@ src/
   index.ts           → Commander CLI entry point (bin: git-broom)
   commands/          → Subcommands: status, clean, branches, objects
   core/
-    git.ts           → execa wrappers for git operations
-    safety.ts        → Branch protection, confirmation prompts
-    config.ts        → .gitbroomrc parsing with Zod validation
+    git.ts           → execa wrappers for all git operations
+    safety.ts        → Branch protection, confirmation prompts, dry-run warnings
+    config.ts        → .gitbroomrc discovery and Zod-validated parsing
   types/index.ts     → Shared TypeScript interfaces
   utils/logger.ts    → Chalk output, table formatting
 ```
