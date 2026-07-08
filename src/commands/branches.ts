@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import type { BroomConfig, GitBranch } from '../types/index.js'
+import type { BroomConfig, BranchCategory, BranchesReport, GitBranch } from '../types/index.js'
 import { getLocalBranches, getMergedBranches, getStaleBranches } from '../core/git.js'
 import { isProtectedBranch } from '../core/safety.js'
 import { logger } from '../utils/logger.js'
@@ -24,12 +24,30 @@ function branchRow(branch: GitBranch, category: string): [string, string, string
   ]
 }
 
+function categoryLabel(category: BranchCategory): string {
+  switch (category) {
+    case 'merged':
+      return chalk.green('merged')
+    case 'stale':
+      return chalk.yellow('stale')
+    case 'active':
+      return chalk.blue('active')
+    case 'protected':
+      return chalk.red('protected')
+  }
+}
+
+function matchesFilter(category: BranchCategory, options: { merged?: boolean; stale?: boolean }): boolean {
+  if (options.merged) return category === 'merged'
+  if (options.stale) return category === 'stale'
+  return true
+}
+
 export async function branchesCommand(
   config: BroomConfig,
   options: { merged?: boolean; stale?: boolean; staleDays?: number },
   cwd?: string,
-) {
-  logger.header('Branches')
+) : Promise<BranchesReport> {
 
   const localBranches = await getLocalBranches(cwd)
   const mergedNames = new Set(await getMergedBranches(cwd))
@@ -54,22 +72,58 @@ export async function branchesCommand(
     }
   }
 
+  const allBranches = [
+    ...merged.map((branch) => ({ ...branch, category: 'merged' as const })),
+    ...stale.map((branch) => ({ ...branch, category: 'stale' as const })),
+    ...active.map((branch) => ({ ...branch, category: 'active' as const })),
+    ...protected_.map((branch) => ({ ...branch, category: 'protected' as const })),
+  ]
+
+  const report: BranchesReport = {
+    staleDays,
+    counts: {
+      total: localBranches.length,
+      merged: merged.length,
+      stale: stale.length,
+      active: active.length,
+      protected: protected_.length,
+    },
+    branches: allBranches
+      .filter((branch) => matchesFilter(branch.category, options))
+      .map((branch) => ({
+        name: branch.name,
+        category: branch.category,
+        lastCommitDate: branch.lastCommitDate,
+        lastCommitHash: branch.lastCommitHash,
+        lastCommitSubject: branch.lastCommitSubject,
+      })),
+  }
+
+  if (config.json) {
+    logger.json(report)
+    return report
+  }
+
+  logger.header('Branches')
+
   const rows: [string, string, string, string][] = [['NAME', 'STATUS', 'LAST COMMIT', 'SUBJECT']]
 
-  if (!options.stale || options.merged) {
-    for (const b of merged) rows.push(branchRow(b, chalk.green('merged')))
-  }
-  if (!options.merged || options.stale) {
-    for (const b of stale) rows.push(branchRow(b, chalk.yellow('stale')))
-  }
-  if (!options.merged && !options.stale) {
-    for (const b of active) rows.push(branchRow(b, chalk.blue('active')))
-    for (const b of protected_) rows.push(branchRow(b, chalk.red('protected')))
+  for (const branch of report.branches) {
+    rows.push(
+      branchRow(
+        {
+          ...branch,
+          isMerged: branch.category === 'merged',
+          isRemote: false,
+        },
+        categoryLabel(branch.category),
+      ),
+    )
   }
 
   if (rows.length === 1) {
     logger.info('No branches found matching criteria.')
-    return
+    return report
   }
 
   logger.table(rows)
@@ -77,4 +131,6 @@ export async function branchesCommand(
   logger.info(
     `Total: ${localBranches.length} | Merged: ${merged.length} | Stale: ${stale.length} | Active: ${active.length} | Protected: ${protected_.length}`,
   )
+
+  return report
 }

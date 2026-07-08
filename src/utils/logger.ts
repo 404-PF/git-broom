@@ -45,6 +45,10 @@ export const logger = {
     console.log(chalk.bold.green('─'.repeat(40)))
     console.log(chalk.bold.green(`✓ Cleaned ${deleted} branches, reclaimed ${formatBytes(reclaimed)}`))
   },
+
+  json(data: unknown) {
+    console.log(JSON.stringify(data, null, 2))
+  },
 }
 
 export function formatBytes(bytes: number): string {

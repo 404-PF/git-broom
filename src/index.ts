@@ -19,6 +19,7 @@ program
   .option('--yes', 'Skip confirmation prompts', false)
   .option('--aggressive', 'Deep clean with aggressive garbage collection', false)
   .option('--verbose', 'Show debug output', false)
+  .option('--json', 'Emit machine-readable JSON output', false)
 
 program
   .command('status')
@@ -30,6 +31,7 @@ program
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
+      json: parentOpts.json,
     })
     await ensureGitRepo(parentOpts.repo)
     await statusCommand(config, parentOpts.repo)
@@ -46,6 +48,7 @@ program
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
+      json: parentOpts.json,
       staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
     } as any)
     await ensureGitRepo(parentOpts.repo)
@@ -65,6 +68,7 @@ program
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
+      json: parentOpts.json,
       staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
     } as any)
     await ensureGitRepo(parentOpts.repo)
@@ -90,6 +94,7 @@ program
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
+      json: parentOpts.json,
     })
     await ensureGitRepo(parentOpts.repo)
     await objectsCommand(config, { prune: opts.prune }, parentOpts.repo)
