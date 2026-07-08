@@ -8,6 +8,20 @@ const cleanMocks = vi.hoisted(() => ({
   cleanCommand: vi.fn(),
 }))
 
+const fsMocks = vi.hoisted(() => ({
+  actualAppendFileSync: undefined as typeof import('fs').appendFileSync | undefined,
+  appendFileSync: vi.fn(),
+}))
+
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>()
+  fsMocks.actualAppendFileSync = actual.appendFileSync
+  return {
+    ...actual,
+    appendFileSync: fsMocks.appendFileSync,
+  }
+})
+
 vi.mock('./clean.js', () => ({ cleanCommand: cleanMocks.cleanCommand }))
 
 import { daemonCommand } from './daemon.js'
@@ -55,6 +69,10 @@ describe('daemonCommand', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    fsMocks.appendFileSync.mockImplementation((...args) => {
+      const [path, data, options] = args as Parameters<typeof import('fs').appendFileSync>
+      fsMocks.actualAppendFileSync?.(path, data, options)
+    })
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     originalExitCode = process.exitCode
@@ -108,6 +126,58 @@ describe('daemonCommand', () => {
     expect(contents).toContain('garbageCollectionRun=true')
   })
 
+  it('continues when schedule log writing fails', async () => {
+    fsMocks.appendFileSync.mockImplementation(() => {
+      throw new Error('disk full')
+    })
+    cleanMocks.cleanCommand.mockResolvedValue(makeResult())
+
+    await expect(
+      daemonCommand(
+        {
+          ...baseConfig,
+          schedule: {
+            interval: 'weekly',
+            logFile: 'logs/git-broom.log',
+          },
+        },
+        { runOnce: true },
+        'C:\\repo',
+      ),
+    ).resolves.toBeUndefined()
+
+    expect(cleanMocks.cleanCommand).toHaveBeenCalledTimes(1)
+    expect(logSpy).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('Failed to append cleanup log'))
+  })
+
+  it('clears the daemon interval and exits cleanly on SIGTERM', async () => {
+    cleanMocks.cleanCommand.mockResolvedValue(makeResult())
+
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    const onceSpy = vi.spyOn(process, 'once')
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+
+    await daemonCommand(baseConfig, {}, 'C:\\repo')
+
+    const intervalHandle = setIntervalSpy.mock.results[0]?.value
+    const sigtermHandler = onceSpy.mock.calls.find(([event]) => event === 'SIGTERM')?.[1]
+
+    expect(intervalHandle).toBeDefined()
+    expect(sigtermHandler).toBeTypeOf('function')
+
+    ;(sigtermHandler as (signal: NodeJS.Signals) => void)('SIGTERM')
+
+    expect(clearIntervalSpy).toHaveBeenCalledWith(intervalHandle)
+    expect(logSpy).toHaveBeenCalledWith(expect.anything(), 'Received SIGTERM; shutting down daemon.')
+    expect(exitSpy).toHaveBeenCalledWith(0)
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
+    onceSpy.mockRestore()
+    exitSpy.mockRestore()
+  })
+
   it('fails safely when no schedule is configured', async () => {
     await daemonCommand({ ...baseConfig, schedule: undefined }, { runOnce: true }, 'C:\\repo')
 
@@ -116,4 +186,3 @@ describe('daemonCommand', () => {
     expect(process.exitCode).toBe(1)
   })
 })
-

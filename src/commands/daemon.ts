@@ -47,8 +47,15 @@ export async function daemonCommand(
     const result = await cleanCommand(config, cwd)
 
     if (config.schedule?.logFile) {
-      writeScheduleLog(config.schedule.logFile, result, cwd)
-      if (!config.json) logger.info(`Appended cleanup log to ${config.schedule.logFile}`)
+      try {
+        writeScheduleLog(config.schedule.logFile, result, cwd)
+        if (!config.json) logger.info(`Appended cleanup log to ${config.schedule.logFile}`)
+      } catch (error: unknown) {
+        if (!config.json) {
+          const message = error instanceof Error ? error.message : String(error)
+          logger.warn(`Failed to append cleanup log to ${config.schedule.logFile}: ${message}`)
+        }
+      }
     }
   }
 
@@ -63,11 +70,21 @@ export async function daemonCommand(
     logger.info(`Daemon mode active; next cleanup runs every ${config.schedule.interval}.`)
   }
 
-  setInterval(() => {
+  const intervalHandle = setInterval(() => {
     void runCycle().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error)
       logger.error(`Scheduled cleanup failed: ${message}`)
     })
   }, intervalMs)
-}
 
+  const shutdown = (signal: NodeJS.Signals) => {
+    clearInterval(intervalHandle)
+    if (!config.json) {
+      logger.info(`Received ${signal}; shutting down daemon.`)
+    }
+    process.exit(0)
+  }
+
+  process.once('SIGINT', shutdown)
+  process.once('SIGTERM', shutdown)
+}
