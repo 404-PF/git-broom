@@ -122,6 +122,46 @@ describe('JSON command output', () => {
     })
   })
 
+  it('includes merged and stale branches when both filters are enabled', async () => {
+    const merged = makeBranch('feature/merged', 5, 'merged work')
+    const stale = makeBranch('feature/stale', 120, 'old work')
+    const active = makeBranch('feature/active', 2, 'active work')
+
+    gitMocks.getLocalBranches.mockResolvedValue([merged, stale, active])
+    gitMocks.getMergedBranches.mockResolvedValue(['feature/merged'])
+    gitMocks.getStaleBranches.mockResolvedValue([stale])
+    safetyMocks.isProtectedBranch.mockReturnValue(false)
+
+    await branchesCommand(baseConfig, { merged: true, stale: true })
+
+    expect(JSON.parse(logSpy.mock.calls[0]?.[0] as string)).toEqual({
+      staleDays: 90,
+      counts: {
+        total: 3,
+        merged: 1,
+        stale: 1,
+        active: 1,
+        protected: 0,
+      },
+      branches: [
+        {
+          name: 'feature/merged',
+          category: 'merged',
+          lastCommitDate: merged.lastCommitDate.toISOString(),
+          lastCommitHash: 'feature/merged-hash',
+          lastCommitSubject: 'merged work',
+        },
+        {
+          name: 'feature/stale',
+          category: 'stale',
+          lastCommitDate: stale.lastCommitDate.toISOString(),
+          lastCommitHash: 'feature/stale-hash',
+          lastCommitSubject: 'old work',
+        },
+      ],
+    })
+  })
+
   it('emits JSON for clean dry-run with candidates and skips', async () => {
     const merged = makeBranch('feature/merged', 5, 'merged work')
     const stale = makeBranch('feature/stale', 120, 'old work')

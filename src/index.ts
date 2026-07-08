@@ -9,6 +9,35 @@ import { objectsCommand } from './commands/objects.js'
 
 const program = new Command()
 
+type GlobalOptions = {
+  repo: string
+  dryRun: boolean
+  yes: boolean
+  aggressive: boolean
+  verbose: boolean
+  json: boolean
+}
+
+function getParentCommand(cmd: Command): Command {
+  if (!cmd.parent) {
+    throw new Error('Expected command to have a parent program')
+  }
+
+  return cmd.parent
+}
+
+function readGlobalOverrides(cmd: Command): GlobalOptions {
+  return getParentCommand(cmd).opts<GlobalOptions>()
+}
+
+function maybeOverrideGlobalFlag(cmd: Command, optionName: 'json'): Partial<{ json: boolean }> {
+  const parent = getParentCommand(cmd)
+
+  return parent.getOptionValueSource(optionName) === 'default'
+    ? {}
+    : { [optionName]: parent.opts<GlobalOptions>()[optionName] }
+}
+
 program
   .name('git-broom')
   .description('A safety-first CLI tool to clean up stale branches and keep repositories tidy.')
@@ -25,13 +54,13 @@ program
   .command('status')
   .description('Show repository hygiene report')
   .action(async (opts, cmd) => {
-    const parentOpts = cmd.parent.opts()
+    const parentOpts = readGlobalOverrides(cmd)
     const config = resolveConfig(parentOpts.repo, {
       dryRun: parentOpts.dryRun,
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
-      json: parentOpts.json,
+      ...maybeOverrideGlobalFlag(cmd, 'json'),
     })
     await ensureGitRepo(parentOpts.repo)
     await statusCommand(config, parentOpts.repo)
@@ -42,13 +71,13 @@ program
   .description('Clean stale branches and prune objects')
   .option('--stale-days <days>', 'Days of inactivity to consider a branch stale')
   .action(async (opts, cmd) => {
-    const parentOpts = cmd.parent.opts()
+    const parentOpts = readGlobalOverrides(cmd)
     const config = resolveConfig(parentOpts.repo, {
       dryRun: parentOpts.dryRun,
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
-      json: parentOpts.json,
+      ...maybeOverrideGlobalFlag(cmd, 'json'),
       staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
     } as any)
     await ensureGitRepo(parentOpts.repo)
@@ -62,13 +91,13 @@ program
   .option('--stale', 'Show only stale branches')
   .option('--stale-days <days>', 'Days of inactivity to consider a branch stale')
   .action(async (opts, cmd) => {
-    const parentOpts = cmd.parent.opts()
+    const parentOpts = readGlobalOverrides(cmd)
     const config = resolveConfig(parentOpts.repo, {
       dryRun: parentOpts.dryRun,
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
-      json: parentOpts.json,
+      ...maybeOverrideGlobalFlag(cmd, 'json'),
       staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
     } as any)
     await ensureGitRepo(parentOpts.repo)
@@ -88,13 +117,13 @@ program
   .description('Inspect and prune dangling objects')
   .option('--prune', 'Remove dangling objects')
   .action(async (opts, cmd) => {
-    const parentOpts = cmd.parent.opts()
+    const parentOpts = readGlobalOverrides(cmd)
     const config = resolveConfig(parentOpts.repo, {
       dryRun: parentOpts.dryRun,
       skipConfirmation: parentOpts.yes,
       aggressive: parentOpts.aggressive,
       verbose: parentOpts.verbose,
-      json: parentOpts.json,
+      ...maybeOverrideGlobalFlag(cmd, 'json'),
     })
     await ensureGitRepo(parentOpts.repo)
     await objectsCommand(config, { prune: opts.prune }, parentOpts.repo)

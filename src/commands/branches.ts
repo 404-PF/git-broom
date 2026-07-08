@@ -38,6 +38,7 @@ function categoryLabel(category: BranchCategory): string {
 }
 
 function matchesFilter(category: BranchCategory, options: { merged?: boolean; stale?: boolean }): boolean {
+  if (options.merged && options.stale) return category === 'merged' || category === 'stale'
   if (options.merged) return category === 'merged'
   if (options.stale) return category === 'stale'
   return true
