@@ -12,6 +12,7 @@ const commandMocks = vi.hoisted(() => ({
   cleanCommand: vi.fn(),
   branchesCommand: vi.fn(),
   objectsCommand: vi.fn(),
+  daemonCommand: vi.fn(),
 }))
 
 vi.mock('./core/git.js', () => gitMocks)
@@ -19,6 +20,7 @@ vi.mock('./commands/status.js', () => ({ statusCommand: commandMocks.statusComma
 vi.mock('./commands/clean.js', () => ({ cleanCommand: commandMocks.cleanCommand }))
 vi.mock('./commands/branches.js', () => ({ branchesCommand: commandMocks.branchesCommand }))
 vi.mock('./commands/objects.js', () => ({ objectsCommand: commandMocks.objectsCommand }))
+vi.mock('./commands/daemon.js', () => ({ daemonCommand: commandMocks.daemonCommand }))
 
 import { createProgram } from './index.js'
 
@@ -69,6 +71,30 @@ describe('CLI JSON wiring', () => {
     expect(commandMocks.statusCommand).toHaveBeenCalledTimes(1)
     expect(commandMocks.statusCommand).toHaveBeenCalledWith(
       expect.objectContaining({ json: false }),
+      repo,
+    )
+  })
+
+  it('wires daemon to config-backed schedule and run-once mode', async () => {
+    const repo = makeTempDir()
+    writeFileSync(
+      join(repo, '.gitbroomrc'),
+      JSON.stringify({ schedule: { interval: 'weekly', logFile: 'logs/git-broom.log' } }),
+    )
+    const program = createProgram()
+
+    await program.parseAsync(['node', 'git-broom', '--repo', repo, 'daemon', '--run-once'])
+
+    expect(commandMocks.daemonCommand).toHaveBeenCalledTimes(1)
+    expect(commandMocks.daemonCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dryRun: true,
+        schedule: {
+          interval: 'weekly',
+          logFile: 'logs/git-broom.log',
+        },
+      }),
+      { runOnce: true },
       repo,
     )
   })

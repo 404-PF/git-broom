@@ -7,6 +7,7 @@ import { statusCommand } from './commands/status.js'
 import { cleanCommand } from './commands/clean.js'
 import { branchesCommand } from './commands/branches.js'
 import { objectsCommand } from './commands/objects.js'
+import { daemonCommand } from './commands/daemon.js'
 
 type GlobalOptions = {
   repo: string
@@ -134,6 +135,23 @@ export function createProgram(): Command {
       })
       await ensureGitRepo(parentOpts.repo)
       await objectsCommand(config, { prune: opts.prune }, parentOpts.repo)
+    })
+
+  program
+    .command('daemon')
+    .description('Run scheduled cleanup cycles from .gitbroomrc')
+    .option('--run-once', 'Run a single scheduled cleanup cycle and exit')
+    .action(async (opts, cmd) => {
+      const parentOpts = readGlobalOverrides(cmd)
+      const config = resolveConfig(parentOpts.repo, {
+        dryRun: parentOpts.dryRun,
+        skipConfirmation: parentOpts.yes,
+        aggressive: parentOpts.aggressive,
+        verbose: parentOpts.verbose,
+        ...maybeOverrideGlobalFlag(cmd, 'json'),
+      })
+      await ensureGitRepo(parentOpts.repo)
+      await daemonCommand(config, { runOnce: opts.runOnce }, parentOpts.repo)
     })
 
   return program

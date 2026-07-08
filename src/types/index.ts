@@ -42,6 +42,13 @@ export interface CleanResult {
   spaceReclaimed: number
 }
 
+export type ScheduleInterval = 'daily' | 'weekly' | 'monthly'
+
+export interface ScheduleConfig {
+  interval: ScheduleInterval
+  logFile?: string
+}
+
 export interface BroomConfig {
   protectedBranches: string[]
   staleDays: number
@@ -50,6 +57,7 @@ export interface BroomConfig {
   skipConfirmation: boolean
   verbose: boolean
   json: boolean
+  schedule?: ScheduleConfig
 }
 
 export type BranchCategory = 'merged' | 'stale' | 'active' | 'protected'
