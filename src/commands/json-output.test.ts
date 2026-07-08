@@ -199,7 +199,6 @@ describe('JSON command output', () => {
       remotes: ['origin'],
       prunedRemotes: [],
       garbageCollectionRun: false,
-      danglingObjectsRemoved: 0,
       beforeSize: 4096,
       afterSize: 4096,
       spaceReclaimed: 0,
@@ -271,6 +270,32 @@ describe('JSON command output', () => {
     const result = await cleanCommand({ ...baseConfig, dryRun: false, skipConfirmation: false })
 
     expect(result.deletedBranches).toEqual([])
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(safetyMocks.confirmAction).not.toHaveBeenCalled()
+    expect(gitMocks.deleteBranch).not.toHaveBeenCalled()
+    expect(gitMocks.pruneRemote).not.toHaveBeenCalled()
+    expect(gitMocks.garbageCollect).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('rejects interactive JSON clean mutations even when no branches are eligible for deletion', async () => {
+    gitMocks.getGitDirSize.mockResolvedValue(4096)
+    gitMocks.getCurrentBranch.mockResolvedValue('main')
+    gitMocks.getLocalBranches.mockResolvedValue([])
+    gitMocks.getMergedBranches.mockResolvedValue([])
+    gitMocks.getStaleBranches.mockResolvedValue([])
+    gitMocks.getRemotes.mockResolvedValue(['origin'])
+    safetyMocks.filterSafeToDelete.mockReturnValue({
+      safe: [],
+      skipped: [],
+    })
+
+    const result = await cleanCommand({ ...baseConfig, dryRun: false, skipConfirmation: false })
+
+    expect(result.deletedBranches).toEqual([])
+    expect(result.prunedRemotes).toEqual([])
+    expect(result.garbageCollectionRun).toBe(false)
     expect(logSpy).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalledTimes(1)
     expect(safetyMocks.confirmAction).not.toHaveBeenCalled()

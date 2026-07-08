@@ -27,6 +27,7 @@ export async function cleanCommand(config: BroomConfig, cwd?: string): Promise<C
     ...mergedBranches,
     ...localBranches.filter((b) => staleNames.has(b.name) && !mergedNames.has(b.name)),
   ]
+  const mutatingRun = !config.dryRun
 
   const { safe, skipped } = filterSafeToDelete(allCandidates, currentBranch, config)
 
@@ -44,7 +45,6 @@ export async function cleanCommand(config: BroomConfig, cwd?: string): Promise<C
     remotes,
     prunedRemotes: [],
     garbageCollectionRun: false,
-    danglingObjectsRemoved: 0,
     beforeSize,
     afterSize: beforeSize,
     spaceReclaimed: 0,
@@ -69,14 +69,14 @@ export async function cleanCommand(config: BroomConfig, cwd?: string): Promise<C
     }
   }
 
-  if (safe.length > 0) {
-    if (!config.dryRun) {
-      if (config.json && !config.skipConfirmation) {
-        logger.error('JSON output for mutating clean runs requires --yes to keep stdout machine-readable.')
-        process.exitCode = 1
-        return result
-      }
+  if (mutatingRun && config.json && !config.skipConfirmation) {
+    logger.error('JSON output for mutating clean runs requires --yes to keep stdout machine-readable.')
+    process.exitCode = 1
+    return result
+  }
 
+  if (safe.length > 0) {
+    if (mutatingRun) {
       const confirmed = await confirmAction(
         `Delete ${safe.length} branches?`,
         config.skipConfirmation,

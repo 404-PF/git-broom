@@ -37,7 +37,6 @@ export interface CleanResult {
   remotes: string[]
   prunedRemotes: string[]
   garbageCollectionRun: boolean
-  danglingObjectsRemoved: number
   beforeSize: number
   afterSize: number
   spaceReclaimed: number
