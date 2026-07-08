@@ -58,4 +58,18 @@ describe('CLI JSON wiring', () => {
       repo,
     )
   })
+
+  it('lets the CLI disable config-backed json with --no-json', async () => {
+    const repo = makeTempDir()
+    writeFileSync(join(repo, '.gitbroomrc'), JSON.stringify({ json: true }))
+    const program = createProgram()
+
+    await program.parseAsync(['node', 'git-broom', '--repo', repo, '--no-json', 'status'])
+
+    expect(commandMocks.statusCommand).toHaveBeenCalledTimes(1)
+    expect(commandMocks.statusCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ json: false }),
+      repo,
+    )
+  })
 })

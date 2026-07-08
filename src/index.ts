@@ -29,12 +29,16 @@ function readGlobalOverrides(cmd: Command): GlobalOptions {
   return getParentCommand(cmd).opts<GlobalOptions>()
 }
 
-function maybeOverrideGlobalFlag(cmd: Command, optionName: 'json'): Partial<{ json: boolean }> {
+function maybeOverrideGlobalFlag(
+  cmd: Command,
+  optionName: 'json',
+): Partial<Pick<GlobalOptions, 'json'>> {
   const parent = getParentCommand(cmd)
+  const optionValue = parent.opts<GlobalOptions>()[optionName]
 
-  return parent.getOptionValueSource(optionName) === 'default'
+  return parent.getOptionValueSource(optionName) === 'default' || optionValue === undefined
     ? {}
-    : { [optionName]: parent.opts<GlobalOptions>()[optionName] }
+    : { [optionName]: optionValue }
 }
 
 export function createProgram(): Command {
@@ -50,7 +54,8 @@ export function createProgram(): Command {
     .option('--yes', 'Skip confirmation prompts', false)
     .option('--aggressive', 'Deep clean with aggressive garbage collection', false)
     .option('--verbose', 'Show debug output', false)
-    .option('--json', 'Emit machine-readable JSON output', false)
+    .option('--json', 'Emit machine-readable JSON output')
+    .option('--no-json', 'Disable machine-readable JSON output')
 
   program
     .command('status')
