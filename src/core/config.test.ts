@@ -57,4 +57,14 @@ describe('resolveConfig', () => {
     expect(config.verbose).toBe(true)
     expect(warnSpy).not.toHaveBeenCalled()
   })
+
+  it('allows CLI overrides to omit json so config-backed JSON stays enabled', () => {
+    const cwd = makeTempDir()
+    writeFileSync(join(cwd, '.gitbroomrc'), JSON.stringify({ json: true }))
+
+    const config = resolveConfig(cwd, { verbose: true })
+
+    expect(config.json).toBe(true)
+    expect(config.verbose).toBe(true)
+  })
 })

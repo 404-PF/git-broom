@@ -12,6 +12,7 @@ const configSchema = z.object({
   aggressive: z.boolean().default(false),
   skipConfirmation: z.boolean().default(false),
   verbose: z.boolean().default(false),
+  json: z.boolean().default(false),
 })
 
 const defaultConfig: BroomConfig = {
@@ -21,6 +22,7 @@ const defaultConfig: BroomConfig = {
   aggressive: false,
   skipConfirmation: false,
   verbose: false,
+  json: false,
 }
 
 function findConfigFile(startDir: string): string | null {

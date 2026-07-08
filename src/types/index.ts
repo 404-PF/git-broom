@@ -20,12 +20,25 @@ export interface RepoStatus {
   danglingObjects: number
   gitDirSize: number
   remotes: string[]
+  staleDays: number
 }
 
 export interface CleanResult {
+  dryRun: boolean
+  aggressive: boolean
+  staleDays: number
+  currentBranch: string | null
+  candidateBranches: Array<{
+    name: string
+    reason: 'merged' | 'stale'
+  }>
+  skippedBranches: string[]
   deletedBranches: string[]
+  remotes: string[]
   prunedRemotes: string[]
-  danglingObjectsRemoved: number
+  garbageCollectionRun: boolean
+  beforeSize: number
+  afterSize: number
   spaceReclaimed: number
 }
 
@@ -36,4 +49,40 @@ export interface BroomConfig {
   aggressive: boolean
   skipConfirmation: boolean
   verbose: boolean
+  json: boolean
+}
+
+export type BranchCategory = 'merged' | 'stale' | 'active' | 'protected'
+
+export interface BranchReportEntry {
+  name: string
+  category: BranchCategory
+  lastCommitDate: Date
+  lastCommitHash: string
+  lastCommitSubject: string
+}
+
+export interface BranchesReport {
+  staleDays: number
+  counts: {
+    total: number
+    merged: number
+    stale: number
+    active: number
+    protected: number
+  }
+  branches: BranchReportEntry[]
+}
+
+export interface ObjectsReport {
+  pruneRequested: boolean
+  dryRun: boolean
+  total: number
+  byType: {
+    commit: number
+    tree: number
+    blob: number
+  }
+  objects: DanglingObject[]
+  pruned: boolean
 }

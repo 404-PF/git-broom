@@ -1,31 +1,63 @@
-import chalk from 'chalk'
-import type { BroomConfig } from '../types/index.js'
+import type { BroomConfig, ObjectsReport } from '../types/index.js'
 import { getDanglingObjects, garbageCollect } from '../core/git.js'
-import { logger, formatBytes } from '../utils/logger.js'
+import { logger } from '../utils/logger.js'
 import { confirmAction, dryRunWarning } from '../core/safety.js'
 
 export async function objectsCommand(
   config: BroomConfig,
   options: { prune?: boolean },
   cwd?: string,
-) {
+) : Promise<ObjectsReport> {
   const objects = await getDanglingObjects(cwd)
+  const report: ObjectsReport = {
+    pruneRequested: Boolean(options.prune),
+    dryRun: config.dryRun,
+    total: objects.length,
+    byType: { commit: 0, tree: 0, blob: 0 },
+    objects,
+    pruned: false,
+  }
+
+  for (const obj of objects) report.byType[obj.type]++
 
   if (objects.length === 0) {
-    logger.success('No dangling objects found.')
-    return
+    if (config.json) {
+      logger.json(report)
+    } else {
+      logger.success('No dangling objects found.')
+    }
+    return report
+  }
+
+  if (config.json) {
+    if (options.prune && !config.dryRun) {
+      if (!config.skipConfirmation) {
+        logger.error('JSON output for mutating object prune runs requires --yes to keep stdout machine-readable.')
+        process.exitCode = 1
+        return report
+      }
+
+      const confirmed = await confirmAction(
+        `Prune ${objects.length} dangling objects?`,
+        config.skipConfirmation,
+      )
+      if (confirmed) {
+        await garbageCollect(config.aggressive, cwd)
+        report.pruned = true
+      }
+    }
+
+    logger.json(report)
+    return report
   }
 
   logger.header(`Dangling Objects (${objects.length})`)
 
-  const byType = { commit: 0, tree: 0, blob: 0 }
-  for (const obj of objects) byType[obj.type]++
-
   const rows = [
     ['TYPE', 'COUNT'],
-    ['commits', String(byType.commit)],
-    ['trees', String(byType.tree)],
-    ['blobs', String(byType.blob)],
+    ['commits', String(report.byType.commit)],
+    ['trees', String(report.byType.tree)],
+    ['blobs', String(report.byType.blob)],
   ]
   logger.table(rows)
   console.log()
@@ -34,7 +66,7 @@ export async function objectsCommand(
     if (config.dryRun) {
       dryRunWarning()
       logger.info(`Would prune ${objects.length} dangling objects.`)
-      return
+      return report
     }
 
     const confirmed = await confirmAction(
@@ -43,13 +75,16 @@ export async function objectsCommand(
     )
     if (!confirmed) {
       logger.info('Aborted.')
-      return
+      return report
     }
 
     logger.info('Running garbage collection...')
     await garbageCollect(config.aggressive, cwd)
+    report.pruned = true
     logger.success('Dangling objects pruned.')
   } else {
     logger.info('Use --prune to remove dangling objects.')
   }
+
+  return report
 }
