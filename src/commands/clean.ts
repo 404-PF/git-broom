@@ -71,6 +71,12 @@ export async function cleanCommand(config: BroomConfig, cwd?: string): Promise<C
 
   if (safe.length > 0) {
     if (!config.dryRun) {
+      if (config.json && !config.skipConfirmation) {
+        logger.error('JSON output for mutating clean runs requires --yes to keep stdout machine-readable.')
+        process.exitCode = 1
+        return result
+      }
+
       const confirmed = await confirmAction(
         `Delete ${safe.length} branches?`,
         config.skipConfirmation,

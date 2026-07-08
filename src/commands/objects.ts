@@ -31,6 +31,12 @@ export async function objectsCommand(
 
   if (config.json) {
     if (options.prune && !config.dryRun) {
+      if (!config.skipConfirmation) {
+        logger.error('JSON output for mutating object prune runs requires --yes to keep stdout machine-readable.')
+        process.exitCode = 1
+        return report
+      }
+
       const confirmed = await confirmAction(
         `Prune ${objects.length} dangling objects?`,
         config.skipConfirmation,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BroomConfig, GitBranch } from '../types/index.js'
 
 const gitMocks = vi.hoisted(() => ({
@@ -59,10 +59,19 @@ function makeBranch(
 
 describe('JSON command output', () => {
   let logSpy: ReturnType<typeof vi.spyOn>
+  let errorSpy: ReturnType<typeof vi.spyOn>
+  let originalExitCode: string | number | null | undefined
 
   beforeEach(() => {
     vi.clearAllMocks()
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    originalExitCode = process.exitCode
+    process.exitCode = undefined
+  })
+
+  afterEach(() => {
+    process.exitCode = originalExitCode
   })
 
   it('emits JSON for status', async () => {
@@ -243,5 +252,44 @@ describe('JSON command output', () => {
     })
     expect(safetyMocks.confirmAction).not.toHaveBeenCalled()
     expect(gitMocks.garbageCollect).not.toHaveBeenCalled()
+  })
+
+  it('rejects interactive JSON clean mutations so stdout stays machine-readable', async () => {
+    const merged = makeBranch('feature/merged', 5, 'merged work')
+
+    gitMocks.getGitDirSize.mockResolvedValue(4096)
+    gitMocks.getCurrentBranch.mockResolvedValue('main')
+    gitMocks.getLocalBranches.mockResolvedValue([merged])
+    gitMocks.getMergedBranches.mockResolvedValue(['feature/merged'])
+    gitMocks.getStaleBranches.mockResolvedValue([])
+    gitMocks.getRemotes.mockResolvedValue(['origin'])
+    safetyMocks.filterSafeToDelete.mockReturnValue({
+      safe: [merged],
+      skipped: [],
+    })
+
+    const result = await cleanCommand({ ...baseConfig, dryRun: false, skipConfirmation: false })
+
+    expect(result.deletedBranches).toEqual([])
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(safetyMocks.confirmAction).not.toHaveBeenCalled()
+    expect(gitMocks.deleteBranch).not.toHaveBeenCalled()
+    expect(gitMocks.pruneRemote).not.toHaveBeenCalled()
+    expect(gitMocks.garbageCollect).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('rejects interactive JSON object prune mutations so stdout stays machine-readable', async () => {
+    gitMocks.getDanglingObjects.mockResolvedValue([{ type: 'commit', hash: 'c1' }])
+
+    const result = await objectsCommand({ ...baseConfig, dryRun: false, skipConfirmation: false }, { prune: true })
+
+    expect(result.pruned).toBe(false)
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(safetyMocks.confirmAction).not.toHaveBeenCalled()
+    expect(gitMocks.garbageCollect).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(1)
   })
 })
