@@ -20,6 +20,15 @@ export async function objectsCommand(
 
   for (const obj of objects) report.byType[obj.type]++
 
+  if (objects.length === 0) {
+    if (config.json) {
+      logger.json(report)
+    } else {
+      logger.success('No dangling objects found.')
+    }
+    return report
+  }
+
   if (config.json) {
     if (options.prune && !config.dryRun) {
       const confirmed = await confirmAction(
@@ -33,11 +42,6 @@ export async function objectsCommand(
     }
 
     logger.json(report)
-    return report
-  }
-
-  if (objects.length === 0) {
-    logger.success('No dangling objects found.')
     return report
   }
 

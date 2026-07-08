@@ -222,4 +222,26 @@ describe('JSON command output', () => {
     })
     expect(gitMocks.garbageCollect).not.toHaveBeenCalled()
   })
+
+  it('emits JSON for empty objects prune requests without prompting or mutating', async () => {
+    gitMocks.getDanglingObjects.mockResolvedValue([])
+    safetyMocks.confirmAction.mockResolvedValue(true)
+
+    await objectsCommand({ ...baseConfig, dryRun: false }, { prune: true })
+
+    expect(JSON.parse(logSpy.mock.calls[0]?.[0] as string)).toEqual({
+      pruneRequested: true,
+      dryRun: false,
+      total: 0,
+      byType: {
+        commit: 0,
+        tree: 0,
+        blob: 0,
+      },
+      objects: [],
+      pruned: false,
+    })
+    expect(safetyMocks.confirmAction).not.toHaveBeenCalled()
+    expect(gitMocks.garbageCollect).not.toHaveBeenCalled()
+  })
 })
