@@ -62,6 +62,17 @@ function makeResult(overrides: Partial<CleanResult> = {}): CleanResult {
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
+}
+
 describe('daemonCommand', () => {
   let logSpy: ReturnType<typeof vi.spyOn>
   let errorSpy: ReturnType<typeof vi.spyOn>
@@ -170,6 +181,50 @@ describe('daemonCommand', () => {
 
     expect(clearIntervalSpy).toHaveBeenCalledWith(intervalHandle)
     expect(logSpy).toHaveBeenCalledWith(expect.anything(), 'Received SIGTERM; shutting down daemon.')
+    expect(exitSpy).toHaveBeenCalledWith(0)
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
+    onceSpy.mockRestore()
+    exitSpy.mockRestore()
+  })
+
+  it('skips a scheduled tick while the previous cleanup is still running', async () => {
+    const scheduledRun = createDeferred<CleanResult>()
+    cleanMocks.cleanCommand.mockResolvedValueOnce(makeResult()).mockReturnValueOnce(scheduledRun.promise)
+
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    const onceSpy = vi.spyOn(process, 'once')
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+
+    await daemonCommand(baseConfig, {}, 'C:\\repo')
+
+    const intervalCallback = setIntervalSpy.mock.calls[0]?.[0]
+    expect(intervalCallback).toBeTypeOf('function')
+
+    ;(intervalCallback as () => void)()
+    await vi.waitFor(() => {
+      expect(cleanMocks.cleanCommand).toHaveBeenCalledTimes(2)
+    })
+
+    ;(intervalCallback as () => void)()
+    expect(cleanMocks.cleanCommand).toHaveBeenCalledTimes(2)
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      'Skipping scheduled cleanup because the previous cycle is still running.',
+    )
+
+    scheduledRun.resolve(makeResult())
+    await vi.waitFor(() => {
+      expect(logSpy).toHaveBeenCalledWith(expect.anything(), 'Running scheduled cleanup (daily, dry-run)')
+    })
+
+    const sigtermHandler = onceSpy.mock.calls.find(([event]) => event === 'SIGTERM')?.[1]
+    expect(sigtermHandler).toBeTypeOf('function')
+    ;(sigtermHandler as (signal: NodeJS.Signals) => void)('SIGTERM')
+
+    expect(clearIntervalSpy).toHaveBeenCalled()
     expect(exitSpy).toHaveBeenCalledWith(0)
 
     setIntervalSpy.mockRestore()

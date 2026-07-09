@@ -37,7 +37,19 @@ export async function daemonCommand(
     return
   }
 
+  let cycleInFlight = false
+
   const runCycle = async () => {
+    if (cycleInFlight) {
+      if (!config.json) {
+        logger.warn('Skipping scheduled cleanup because the previous cycle is still running.')
+      }
+      return
+    }
+
+    cycleInFlight = true
+
+    try {
     if (!config.json) {
       logger.info(
         `Running scheduled cleanup (${config.schedule?.interval}, ${config.dryRun ? 'dry-run' : 'live'})`,
@@ -56,6 +68,9 @@ export async function daemonCommand(
           logger.warn(`Failed to append cleanup log to ${config.schedule.logFile}: ${message}`)
         }
       }
+    }
+    } finally {
+      cycleInFlight = false
     }
   }
 
