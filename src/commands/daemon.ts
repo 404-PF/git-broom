@@ -56,35 +56,39 @@ export async function daemonCommand(
     cycleInFlight = true
 
     try {
-    if (!config.json) {
-      logger.info(
-        `Running scheduled cleanup (${config.schedule?.interval}, ${config.dryRun ? 'dry-run' : 'live'})`,
-      )
-    }
+      if (!config.json) {
+        logger.info(
+          `Running scheduled cleanup (${config.schedule?.interval}, ${config.dryRun ? 'dry-run' : 'live'})`,
+        )
+      }
 
-    const result = await cleanCommand(config, cwd)
+      const result = await cleanCommand(config, cwd)
 
-    if (config.schedule?.logFile) {
-      try {
-        writeScheduleLog(config.schedule.logFile, result, cwd)
-        if (!config.json) logger.info(`Appended cleanup log to ${config.schedule.logFile}`)
-      } catch (error: unknown) {
-        if (!config.json) {
-          const message = error instanceof Error ? error.message : String(error)
-          logger.warn(`Failed to append cleanup log to ${config.schedule.logFile}: ${message}`)
+      if (config.schedule?.logFile) {
+        try {
+          writeScheduleLog(config.schedule.logFile, result, cwd)
+          if (!config.json) logger.info(`Appended cleanup log to ${config.schedule.logFile}`)
+        } catch (error: unknown) {
+          if (!config.json) {
+            const message = error instanceof Error ? error.message : String(error)
+            logger.warn(`Failed to append cleanup log to ${config.schedule.logFile}: ${message}`)
+          }
         }
       }
-    }
     } finally {
       cycleInFlight = false
     }
   }
 
-  await runCycle()
-
   if (options.runOnce) {
+    await runCycle()
     return
   }
+
+  void runCycle().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+    logger.error(`Scheduled cleanup failed: ${message}`)
+  })
 
   const intervalMs = intervalToMs(config.schedule.interval)
   if (!config.json) {

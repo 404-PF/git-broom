@@ -105,6 +105,15 @@ describe('daemonCommand', () => {
     expect(cleanMocks.cleanCommand).toHaveBeenCalledWith(baseConfig, 'C:\\repo')
   })
 
+  it('propagates cleanup failures in run-once mode', async () => {
+    const error = new Error('clean failed')
+    cleanMocks.cleanCommand.mockRejectedValue(error)
+
+    await expect(daemonCommand(baseConfig, { runOnce: true }, 'C:\\repo')).rejects.toThrow(error)
+
+    expect(cleanMocks.cleanCommand).toHaveBeenCalledTimes(1)
+  })
+
   it('appends cleanup activity to the configured log file', async () => {
     const cwd = makeTempDir()
     const logFile = 'logs/git-broom.log'
@@ -218,6 +227,40 @@ describe('daemonCommand', () => {
     scheduledRun.resolve(makeResult())
     await vi.waitFor(() => {
       expect(logSpy).toHaveBeenCalledWith(expect.anything(), 'Running scheduled cleanup (daily, dry-run)')
+    })
+
+    const sigtermHandler = onceSpy.mock.calls.find(([event]) => event === 'SIGTERM')?.[1]
+    expect(sigtermHandler).toBeTypeOf('function')
+    ;(sigtermHandler as (signal: NodeJS.Signals) => void)('SIGTERM')
+
+    expect(clearIntervalSpy).toHaveBeenCalled()
+    expect(exitSpy).toHaveBeenCalledWith(0)
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
+    onceSpy.mockRestore()
+    exitSpy.mockRestore()
+  })
+
+  it('logs and keeps the daemon active when the initial cycle fails', async () => {
+    cleanMocks.cleanCommand.mockRejectedValueOnce(new Error('initial failure')).mockResolvedValueOnce(makeResult())
+
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    const onceSpy = vi.spyOn(process, 'once')
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+
+    await daemonCommand(baseConfig, {}, 'C:\\repo')
+    await vi.waitFor(() => {
+      expect(errorSpy).toHaveBeenCalledWith(expect.anything(), 'Scheduled cleanup failed: initial failure')
+    })
+
+    const intervalCallback = setIntervalSpy.mock.calls[0]?.[0]
+    expect(intervalCallback).toBeTypeOf('function')
+
+    ;(intervalCallback as () => void)()
+    await vi.waitFor(() => {
+      expect(cleanMocks.cleanCommand).toHaveBeenCalledTimes(2)
     })
 
     const sigtermHandler = onceSpy.mock.calls.find(([event]) => event === 'SIGTERM')?.[1]
