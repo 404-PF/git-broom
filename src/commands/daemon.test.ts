@@ -240,4 +240,35 @@ describe('daemonCommand', () => {
     expect(errorSpy).toHaveBeenCalledTimes(1)
     expect(process.exitCode).toBe(1)
   })
+
+  it('fails safely for live daemon runs without skip confirmation', async () => {
+    await daemonCommand(
+      {
+        ...baseConfig,
+        dryRun: false,
+      },
+      { runOnce: true },
+      'C:\\repo',
+    )
+
+    expect(cleanMocks.cleanCommand).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('fails safely for json live daemon runs without skip confirmation', async () => {
+    await daemonCommand(
+      {
+        ...baseConfig,
+        dryRun: false,
+        json: true,
+      },
+      { runOnce: true },
+      'C:\\repo',
+    )
+
+    expect(cleanMocks.cleanCommand).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(process.exitCode).toBe(1)
+  })
 })

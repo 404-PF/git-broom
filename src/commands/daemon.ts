@@ -37,6 +37,12 @@ export async function daemonCommand(
     return
   }
 
+  if (!config.dryRun && !config.skipConfirmation) {
+    logger.error('Live daemon runs require --yes so scheduled cleanups never block on confirmation.')
+    process.exitCode = 1
+    return
+  }
+
   let cycleInFlight = false
 
   const runCycle = async () => {
