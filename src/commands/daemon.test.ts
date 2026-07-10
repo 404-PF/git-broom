@@ -76,6 +76,7 @@ function createDeferred<T>() {
 describe('daemonCommand', () => {
   let logSpy: ReturnType<typeof vi.spyOn>
   let errorSpy: ReturnType<typeof vi.spyOn>
+  let intervalHandle: ReturnType<typeof setInterval> | undefined
   let originalExitCode: string | number | null | undefined
 
   beforeEach(() => {
@@ -91,6 +92,10 @@ describe('daemonCommand', () => {
   })
 
   afterEach(() => {
+    if (intervalHandle !== undefined) {
+      clearInterval(intervalHandle)
+      intervalHandle = undefined
+    }
     logSpy.mockRestore()
     errorSpy.mockRestore()
     process.exitCode = originalExitCode
@@ -180,7 +185,7 @@ describe('daemonCommand', () => {
 
     await daemonCommand(baseConfig, {}, 'C:\\repo')
 
-    const intervalHandle = setIntervalSpy.mock.results[0]?.value
+    intervalHandle = setIntervalSpy.mock.results[0]?.value
     const sigtermHandler = onceSpy.mock.calls.find(([event]) => event === 'SIGTERM')?.[1]
 
     expect(intervalHandle).toBeDefined()
@@ -209,6 +214,7 @@ describe('daemonCommand', () => {
 
     await daemonCommand(baseConfig, {}, 'C:\\repo')
 
+    intervalHandle = setIntervalSpy.mock.results[0]?.value
     const intervalCallback = setIntervalSpy.mock.calls[0]?.[0]
     expect(intervalCallback).toBeTypeOf('function')
 
@@ -251,6 +257,7 @@ describe('daemonCommand', () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
 
     await daemonCommand(baseConfig, {}, 'C:\\repo')
+    intervalHandle = setIntervalSpy.mock.results[0]?.value
     await vi.waitFor(() => {
       expect(errorSpy).toHaveBeenCalledWith(expect.anything(), 'Scheduled cleanup failed: initial failure')
     })
