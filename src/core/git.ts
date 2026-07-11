@@ -1,6 +1,6 @@
 import { execa } from 'execa'
 import { statSync, readdirSync } from 'fs'
-import { join } from 'path'
+import { isAbsolute, join, resolve } from 'path'
 import type { GitBranch, DanglingObject } from '../types/index.js'
 
 export async function git(args: string[], cwd?: string) {
@@ -15,6 +15,11 @@ export async function isGitRepo(cwd?: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+export async function getGitPath(path: string, cwd?: string): Promise<string> {
+  const gitPath = await git(['rev-parse', '--git-path', path], cwd)
+  return isAbsolute(gitPath) ? gitPath : resolve(cwd ?? process.cwd(), gitPath)
 }
 
 export async function getCurrentBranch(cwd?: string): Promise<string | null> {

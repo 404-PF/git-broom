@@ -88,6 +88,31 @@ describe('resolveConfig', () => {
     })
   })
 
+  it('parses configurable branch naming rules', () => {
+    const cwd = makeTempDir()
+    writeFileSync(
+      join(cwd, '.gitbroomrc'),
+      JSON.stringify({
+        branchNaming: {
+          requireTicket: false,
+          requirePrefix: true,
+          allowedPrefixes: ['work'],
+          ignorePatterns: ['dependabot/*'],
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming).toEqual({
+      requireTicket: false,
+      requirePrefix: true,
+      ticketPattern: '[A-Z]+-\\d+',
+      allowedPrefixes: ['work'],
+      ignorePatterns: ['dependabot/*'],
+    })
+  })
+
   it('ignores invalid schedule configuration and falls back safely', () => {
     const cwd = makeTempDir()
     const configPath = join(cwd, '.gitbroomrc')

@@ -8,6 +8,7 @@ import { cleanCommand } from './commands/clean.js'
 import { branchesCommand } from './commands/branches.js'
 import { objectsCommand } from './commands/objects.js'
 import { daemonCommand } from './commands/daemon.js'
+import { hooksCheckCommand, hooksInstallCommand } from './commands/hooks.js'
 
 type GlobalOptions = {
   repo: string
@@ -23,7 +24,9 @@ function getParentCommand(cmd: Command): Command {
     throw new Error('Expected command to have a parent program')
   }
 
-  return cmd.parent
+  let parent = cmd.parent
+  while (parent.parent) parent = parent.parent
+  return parent
 }
 
 function readGlobalOverrides(cmd: Command): GlobalOptions {
@@ -157,6 +160,43 @@ export function createProgram(): Command {
       })
       await ensureGitRepo(parentOpts.repo)
       await daemonCommand(config, { runOnce: opts.runOnce }, parentOpts.repo)
+    })
+
+  const hooks = program
+    .command('hooks')
+    .alias('hook')
+    .description('Install and run branch naming Git hooks')
+
+  hooks
+    .command('install')
+    .description('Install post-checkout, pre-commit, and pre-push hooks')
+    .action(async (_opts, cmd) => {
+      const parentOpts = readGlobalOverrides(cmd)
+      await ensureGitRepo(parentOpts.repo)
+      await hooksInstallCommand(parentOpts.repo)
+    })
+
+  hooks
+    .command('check')
+    .description('Check the current branch name from a Git hook')
+    .argument('[hookArgs...]', 'Arguments passed by Git to the hook')
+    .option('--hook <hook>', 'Git hook being executed', 'pre-commit')
+    .option('--force', 'Bypass branch naming warnings')
+    .action(async (hookArgs, opts, cmd) => {
+      const parentOpts = readGlobalOverrides(cmd)
+      const config = resolveConfig(parentOpts.repo, {
+        dryRun: parentOpts.dryRun,
+        skipConfirmation: parentOpts.yes,
+        aggressive: parentOpts.aggressive,
+        verbose: parentOpts.verbose,
+        ...maybeOverrideGlobalFlag(cmd, 'json'),
+      })
+      await ensureGitRepo(parentOpts.repo)
+      await hooksCheckCommand(
+        config,
+        { hook: opts.hook, force: opts.force, hookArgs },
+        parentOpts.repo,
+      )
     })
 
   return program

@@ -10,6 +10,7 @@ A safety-first CLI tool to automatically clean up stale branches, prune dangling
 - **Stale branch detection** — configurable inactivity threshold (default: 90 days)
 - **Dangling object pruning** — clean up unreachable commits, trees, and blobs
 - **Repository status report** — quick overview of branch hygiene and `.git` size
+- **Branch naming hooks** — warn about branch names that lack a ticket or recognized prefix
 
 ## Installation
 
@@ -30,6 +31,7 @@ git-broom status          # Show repository hygiene report
 git-broom clean           # Clean stale branches (dry-run by default)
 git-broom branches        # List branches by state
 git-broom objects         # Inspect dangling objects
+git-broom hook install    # Install branch naming hooks
 ```
 
 ### Global Options
@@ -118,6 +120,28 @@ Create a `.gitbroomrc` file in your repository or home directory:
   "verbose": false
 }
 ```
+
+Branch naming warnings are enabled by default for non-protected branches. Customize them with `branchNaming`:
+
+```json
+{
+  "branchNaming": {
+    "requireTicket": true,
+    "requirePrefix": true,
+    "ticketPattern": "[A-Z]+-\\d+",
+    "allowedPrefixes": ["feature", "fix", "chore"],
+    "ignorePatterns": ["dependabot/*"]
+  }
+}
+```
+
+Install `post-checkout`, `pre-commit`, and `pre-push` hooks with:
+
+```bash
+git-broom hook install
+```
+
+The hooks warn but do not block Git operations. Use Git's `--no-verify` option, `git-broom hooks check --force`, or set `GIT_BROOM_FORCE=1` to bypass a warning. Existing hooks are backed up as `<hook>.git-broom-backup` before Git Broom installs its wrapper.
 
 ## Safety
 

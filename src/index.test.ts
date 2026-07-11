@@ -13,6 +13,8 @@ const commandMocks = vi.hoisted(() => ({
   branchesCommand: vi.fn(),
   objectsCommand: vi.fn(),
   daemonCommand: vi.fn(),
+  hooksInstallCommand: vi.fn(),
+  hooksCheckCommand: vi.fn(),
 }))
 
 vi.mock('./core/git.js', () => gitMocks)
@@ -21,6 +23,10 @@ vi.mock('./commands/clean.js', () => ({ cleanCommand: commandMocks.cleanCommand 
 vi.mock('./commands/branches.js', () => ({ branchesCommand: commandMocks.branchesCommand }))
 vi.mock('./commands/objects.js', () => ({ objectsCommand: commandMocks.objectsCommand }))
 vi.mock('./commands/daemon.js', () => ({ daemonCommand: commandMocks.daemonCommand }))
+vi.mock('./commands/hooks.js', () => ({
+  hooksInstallCommand: commandMocks.hooksInstallCommand,
+  hooksCheckCommand: commandMocks.hooksCheckCommand,
+}))
 
 import { createProgram } from './index.js'
 
@@ -121,6 +127,31 @@ describe('CLI JSON wiring', () => {
         staleDays: undefined,
         histogram: true,
       },
+      repo,
+    )
+  })
+
+  it('wires nested hook checks to the repository and hook arguments', async () => {
+    const repo = makeTempDir()
+    const program = createProgram()
+
+    await program.parseAsync([
+      'node',
+      'git-broom',
+      '--repo',
+      repo,
+      'hooks',
+      'check',
+      '--hook',
+      'post-checkout',
+      'old',
+      'new',
+      '1',
+    ])
+
+    expect(commandMocks.hooksCheckCommand).toHaveBeenCalledWith(
+      expect.anything(),
+      { hook: 'post-checkout', force: undefined, hookArgs: ['old', 'new', '1'] },
       repo,
     )
   })
