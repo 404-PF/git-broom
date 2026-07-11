@@ -58,6 +58,23 @@ describe('resolveConfig', () => {
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
+  it('does not share default branch naming state between resolutions', () => {
+    const cwd = makeTempDir()
+    const firstConfig = resolveConfig(cwd, {})
+    const secondConfig = resolveConfig(cwd, {})
+
+    firstConfig.branchNaming!.allowedPrefixes.push('custom')
+    firstConfig.branchNaming!.ignorePatterns.push('generated/*')
+
+    expect(secondConfig.branchNaming).toEqual({
+      requireTicket: true,
+      requirePrefix: true,
+      ticketPattern: '[A-Z]+-\\d+',
+      allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
+      ignorePatterns: [],
+    })
+  })
+
   it('allows CLI overrides to omit json so config-backed JSON stays enabled', () => {
     const cwd = makeTempDir()
     writeFileSync(join(cwd, '.gitbroomrc'), JSON.stringify({ json: true }))

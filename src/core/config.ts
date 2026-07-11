@@ -12,6 +12,10 @@ export const DEFAULT_BRANCH_NAMING: BranchNamingConfig = {
   ignorePatterns: [],
 }
 
+function cloneDefaultBranchNaming(): BranchNamingConfig {
+  return structuredClone(DEFAULT_BRANCH_NAMING)
+}
+
 const scheduleSchema = z.object({
   interval: z.enum(['daily', 'weekly', 'monthly']),
   logFile: z.string().min(1).optional(),
@@ -45,19 +49,21 @@ const configSchema = z.object({
   verbose: z.boolean().default(false),
   json: z.boolean().default(false),
   schedule: scheduleSchema.optional(),
-  branchNaming: branchNamingSchema.default(DEFAULT_BRANCH_NAMING),
+  branchNaming: branchNamingSchema.default(cloneDefaultBranchNaming),
 })
 
-const defaultConfig: BroomConfig = {
-  protectedBranches: ['main', 'master', 'develop'],
-  staleDays: 90,
-  dryRun: true,
-  aggressive: false,
-  skipConfirmation: false,
-  verbose: false,
-  json: false,
-  schedule: undefined,
-  branchNaming: DEFAULT_BRANCH_NAMING,
+function createDefaultConfig(): BroomConfig {
+  return {
+    protectedBranches: ['main', 'master', 'develop'],
+    staleDays: 90,
+    dryRun: true,
+    aggressive: false,
+    skipConfirmation: false,
+    verbose: false,
+    json: false,
+    schedule: undefined,
+    branchNaming: cloneDefaultBranchNaming(),
+  }
 }
 
 function findConfigFile(startDir: string): string | null {
@@ -97,7 +103,7 @@ export function resolveConfig(cwd: string, cliOverrides: Partial<BroomConfig>): 
   const fileConfig = configFile ? parseConfigFile(configFile) : {}
 
   return {
-    ...defaultConfig,
+    ...createDefaultConfig(),
     ...fileConfig,
     ...cliOverrides,
   }
