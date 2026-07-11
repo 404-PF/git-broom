@@ -97,7 +97,11 @@ export function createProgram(): Command {
     .description('List and manage branches by state')
     .option('--merged', 'Show only merged branches')
     .option('--stale', 'Show only stale branches')
-    .option('--stale-days <days>', 'Days of inactivity to consider a branch stale')
+    .option(
+      '--stale-days <days>',
+      'Days of inactivity to consider a branch stale',
+    )
+    .option('--histogram', 'Show branch age distribution histogram')
     .action(async (opts, cmd) => {
       const parentOpts = readGlobalOverrides(cmd)
       const config = resolveConfig(parentOpts.repo, {
@@ -115,6 +119,7 @@ export function createProgram(): Command {
           merged: opts.merged,
           stale: opts.stale,
           staleDays: opts.staleDays ? parseInt(opts.staleDays, 10) : undefined,
+          histogram: opts.histogram,
         },
         parentOpts.repo,
       )

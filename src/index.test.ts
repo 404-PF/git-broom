@@ -98,4 +98,30 @@ describe('CLI JSON wiring', () => {
       repo,
     )
   })
+
+  it('passes --histogram through to branchesCommand', async () => {
+    const repo = makeTempDir()
+    const program = createProgram()
+
+    await program.parseAsync([
+      'node',
+      'git-broom',
+      '--repo',
+      repo,
+      'branches',
+      '--histogram',
+    ])
+
+    expect(commandMocks.branchesCommand).toHaveBeenCalledTimes(1)
+    expect(commandMocks.branchesCommand).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        merged: undefined,
+        stale: undefined,
+        staleDays: undefined,
+        histogram: true,
+      },
+      repo,
+    )
+  })
 })

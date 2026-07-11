@@ -87,9 +87,12 @@ git-broom branches                 # All branches
 git-broom branches --merged        # Only merged
 git-broom branches --stale         # Only stale
 git-broom branches --stale-days 60 # Custom threshold
+git-broom branches --histogram     # Show branch age distribution
 ```
 
 Use `--merged` to filter for branches already merged into HEAD, and `--stale` to filter for branches with no commits within the stale threshold (default: 90 days). With no filters, branches are categorized as **merged**, **stale**, **active**, or **protected**.
+
+Use `--histogram` to show branch counts grouped into `0-7d`, `7-30d`, `30-90d`, and `90d+` age buckets. The ranges are color-coded from green for recent branches through yellow to red for branches older than 90 days.
 
 #### `objects`
 

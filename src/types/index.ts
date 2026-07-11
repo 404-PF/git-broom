@@ -70,6 +70,13 @@ export interface BranchReportEntry {
   lastCommitSubject: string
 }
 
+export type BranchAgeBucket = '0-7d' | '7-30d' | '30-90d' | '90d+'
+
+export interface BranchAgeHistogramEntry {
+  bucket: BranchAgeBucket
+  count: number
+}
+
 export interface BranchesReport {
   staleDays: number
   counts: {
@@ -80,6 +87,7 @@ export interface BranchesReport {
     protected: number
   }
   branches: BranchReportEntry[]
+  histogram?: BranchAgeHistogramEntry[]
 }
 
 export interface ObjectsReport {
