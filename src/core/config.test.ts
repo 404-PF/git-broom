@@ -67,4 +67,38 @@ describe('resolveConfig', () => {
     expect(config.json).toBe(true)
     expect(config.verbose).toBe(true)
   })
+
+  it('parses schedule configuration with interval and log file', () => {
+    const cwd = makeTempDir()
+    writeFileSync(
+      join(cwd, '.gitbroomrc'),
+      JSON.stringify({
+        schedule: {
+          interval: 'daily',
+          logFile: 'logs/git-broom.log',
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.schedule).toEqual({
+      interval: 'daily',
+      logFile: 'logs/git-broom.log',
+    })
+  })
+
+  it('ignores invalid schedule configuration and falls back safely', () => {
+    const cwd = makeTempDir()
+    const configPath = join(cwd, '.gitbroomrc')
+    writeFileSync(configPath, JSON.stringify({ schedule: { interval: 'hourly' } }))
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.schedule).toBeUndefined()
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining(`Ignoring invalid config file at ${configPath}`),
+    )
+  })
 })

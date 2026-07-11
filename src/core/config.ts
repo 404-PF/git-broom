@@ -1,9 +1,13 @@
 import { z } from 'zod'
 import { readFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 import { logger } from '../utils/logger.js'
 import type { BroomConfig } from '../types/index.js'
+
+const scheduleSchema = z.object({
+  interval: z.enum(['daily', 'weekly', 'monthly']),
+  logFile: z.string().min(1).optional(),
+})
 
 const configSchema = z.object({
   protectedBranches: z.array(z.string()).default(['main', 'master', 'develop']),
@@ -13,6 +17,7 @@ const configSchema = z.object({
   skipConfirmation: z.boolean().default(false),
   verbose: z.boolean().default(false),
   json: z.boolean().default(false),
+  schedule: scheduleSchema.optional(),
 })
 
 const defaultConfig: BroomConfig = {
@@ -23,6 +28,7 @@ const defaultConfig: BroomConfig = {
   skipConfirmation: false,
   verbose: false,
   json: false,
+  schedule: undefined,
 }
 
 function findConfigFile(startDir: string): string | null {
