@@ -135,6 +135,14 @@ Branch naming warnings are enabled by default for non-protected branches. Custom
 }
 ```
 
+| Field | Purpose | Expected value |
+| --- | --- | --- |
+| `requireTicket` | Require a ticket matching `ticketPattern` in the branch name. | Boolean |
+| `requirePrefix` | Require the first branch path segment to be in `allowedPrefixes`. | Boolean |
+| `ticketPattern` | Regular expression used to find a ticket identifier. | Regex string |
+| `allowedPrefixes` | Prefixes accepted as the first branch path segment. | Array of strings |
+| `ignorePatterns` | Branch globs excluded from naming warnings. | Array of glob strings (`*` and `?` supported) |
+
 Install `post-checkout`, `pre-commit`, and `pre-push` hooks with:
 
 ```bash

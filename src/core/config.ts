@@ -2,7 +2,15 @@ import { z } from 'zod'
 import { readFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { logger } from '../utils/logger.js'
-import type { BroomConfig } from '../types/index.js'
+import type { BranchNamingConfig, BroomConfig } from '../types/index.js'
+
+export const DEFAULT_BRANCH_NAMING: BranchNamingConfig = {
+  requireTicket: true,
+  requirePrefix: true,
+  ticketPattern: '[A-Z]+-\\d+',
+  allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
+  ignorePatterns: [],
+}
 
 const scheduleSchema = z.object({
   interval: z.enum(['daily', 'weekly', 'monthly']),
@@ -10,8 +18,8 @@ const scheduleSchema = z.object({
 })
 
 const branchNamingSchema = z.object({
-  requireTicket: z.boolean().default(true),
-  requirePrefix: z.boolean().default(true),
+  requireTicket: z.boolean().default(DEFAULT_BRANCH_NAMING.requireTicket),
+  requirePrefix: z.boolean().default(DEFAULT_BRANCH_NAMING.requirePrefix),
   ticketPattern: z
     .string()
     .min(1)
@@ -23,17 +31,9 @@ const branchNamingSchema = z.object({
         return false
       }
     }, 'must be a valid regular expression')
-    .default('[A-Z]+-\\d+'),
-  allowedPrefixes: z.array(z.string().min(1)).default([
-    'feature',
-    'fix',
-    'bugfix',
-    'chore',
-    'docs',
-    'refactor',
-    'test',
-  ]),
-  ignorePatterns: z.array(z.string().min(1)).default([]),
+    .default(DEFAULT_BRANCH_NAMING.ticketPattern),
+  allowedPrefixes: z.array(z.string().min(1)).default([...DEFAULT_BRANCH_NAMING.allowedPrefixes]),
+  ignorePatterns: z.array(z.string().min(1)).default([...DEFAULT_BRANCH_NAMING.ignorePatterns]),
 })
 
 const configSchema = z.object({
@@ -45,7 +45,7 @@ const configSchema = z.object({
   verbose: z.boolean().default(false),
   json: z.boolean().default(false),
   schedule: scheduleSchema.optional(),
-  branchNaming: branchNamingSchema.default({}),
+  branchNaming: branchNamingSchema.default(DEFAULT_BRANCH_NAMING),
 })
 
 const defaultConfig: BroomConfig = {
@@ -57,13 +57,7 @@ const defaultConfig: BroomConfig = {
   verbose: false,
   json: false,
   schedule: undefined,
-  branchNaming: {
-    requireTicket: true,
-    requirePrefix: true,
-    ticketPattern: '[A-Z]+-\\d+',
-    allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
-    ignorePatterns: [],
-  },
+  branchNaming: DEFAULT_BRANCH_NAMING,
 }
 
 function findConfigFile(startDir: string): string | null {

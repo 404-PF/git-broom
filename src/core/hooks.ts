@@ -8,6 +8,7 @@ import {
 } from "fs";
 import { join } from "path";
 import type { BranchNamingConfig, BroomConfig } from "../types/index.js";
+import { DEFAULT_BRANCH_NAMING } from "./config.js";
 import { getGitPath } from "./git.js";
 import { isProtectedBranch } from "./safety.js";
 
@@ -33,25 +34,9 @@ export interface HookCheckResult {
   bypassed: boolean;
 }
 
-const DEFAULT_BRANCH_NAMING: BranchNamingConfig = {
-  requireTicket: true,
-  requirePrefix: true,
-  ticketPattern: "[A-Z]+-\\d+",
-  allowedPrefixes: [
-    "feature",
-    "fix",
-    "bugfix",
-    "chore",
-    "docs",
-    "refactor",
-    "test",
-  ],
-  ignorePatterns: [],
-};
-
 function globToRegex(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped.replace(/\*/g, ".*")}$`);
+  const escaped = pattern.replace(/[.+^${}()|[\]\\?]/g, "\\$&");
+  return new RegExp(`^${escaped.replace(/\*/g, ".*").replace(/\\\?/g, ".")}$`);
 }
 
 function matchesPattern(value: string, pattern: string): boolean {
@@ -117,6 +102,11 @@ function renderHookScript(hook: HookName): string {
     `  git-broom hooks check --hook ${hook} --force "$@"`,
     "else",
     `  git-broom hooks check --hook ${hook} "$@"`,
+    "fi",
+    "status=$?",
+    'if [ "$status" -ne 0 ]; then',
+    '  echo "Warning: git-broom hooks check failed or is unavailable; continuing." >&2',
+    "  exit 0",
     "fi",
     "",
   ].join("\n");

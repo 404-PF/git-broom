@@ -155,4 +155,13 @@ describe('CLI JSON wiring', () => {
       repo,
     )
   })
+
+  it('wires nested hook installation to the repository', async () => {
+    const repo = makeTempDir()
+    const program = createProgram()
+
+    await program.parseAsync(['node', 'git-broom', '--repo', repo, 'hooks', 'install'])
+
+    expect(commandMocks.hooksInstallCommand).toHaveBeenCalledWith(repo)
+  })
 })
