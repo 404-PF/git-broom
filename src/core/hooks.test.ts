@@ -75,6 +75,15 @@ describe("branch naming hooks", () => {
         },
       }),
     ).toEqual([]);
+    expect(
+      getBranchNamingWarnings("release/1", {
+        ...baseConfig,
+        branchNaming: {
+          ...baseConfig.branchNaming!,
+          ignorePatterns: ["release/?"],
+        },
+      }),
+    ).toEqual([]);
   });
 
   it("installs all hooks and preserves an existing hook", async () => {
