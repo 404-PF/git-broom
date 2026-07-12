@@ -34,17 +34,30 @@ export interface HookCheckResult {
   bypassed: boolean;
 }
 
-function globToRegex(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\?]/g, "\\$&");
-  return new RegExp(`^${escaped.replace(/\*/g, ".*").replace(/\\\?/g, ".")}$`);
-}
-
 function matchesPattern(value: string, pattern: string): boolean {
-  try {
-    return globToRegex(pattern).test(value);
-  } catch {
-    return false;
+  let valueIndex = 0;
+  let patternIndex = 0;
+  let starIndex = -1;
+  let starMatchIndex = 0;
+
+  while (valueIndex < value.length) {
+    const patternCharacter = pattern[patternIndex];
+    if (patternCharacter === "?" || patternCharacter === value[valueIndex]) {
+      valueIndex++;
+      patternIndex++;
+    } else if (patternCharacter === "*") {
+      starIndex = patternIndex++;
+      starMatchIndex = valueIndex;
+    } else if (starIndex !== -1) {
+      patternIndex = starIndex + 1;
+      valueIndex = ++starMatchIndex;
+    } else {
+      return false;
+    }
   }
+
+  while (pattern[patternIndex] === "*") patternIndex++;
+  return patternIndex === pattern.length;
 }
 
 function getBranchNamingReasons(
