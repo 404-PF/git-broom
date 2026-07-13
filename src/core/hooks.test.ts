@@ -64,8 +64,11 @@ describe("branch naming hooks", () => {
     ).toEqual([]);
   });
 
-  it("does not warn for protected or ignored branches", () => {
+  it("does not warn for protected branches", () => {
     expect(getBranchNamingWarnings("main", baseConfig)).toEqual([]);
+  });
+
+  it("respects * glob in ignorePatterns", () => {
     expect(
       getBranchNamingWarnings("dependabot/npm", {
         ...baseConfig,
@@ -75,6 +78,9 @@ describe("branch naming hooks", () => {
         },
       }),
     ).toEqual([]);
+  });
+
+  it("respects ? single-character glob in ignorePatterns", () => {
     expect(
       getBranchNamingWarnings("release/1", {
         ...baseConfig,
@@ -84,6 +90,15 @@ describe("branch naming hooks", () => {
         },
       }),
     ).toEqual([]);
+    expect(
+      getBranchNamingWarnings("release/99", {
+        ...baseConfig,
+        branchNaming: {
+          ...baseConfig.branchNaming!,
+          ignorePatterns: ["release/?"],
+        },
+      }),
+    ).not.toEqual([]);
   });
 
   it("installs all hooks and preserves an existing hook", async () => {

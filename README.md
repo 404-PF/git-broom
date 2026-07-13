@@ -151,6 +151,8 @@ git-broom hook install
 
 The hooks warn but do not block Git operations. Use Git's `--no-verify` option, `git-broom hooks check --force`, or set `GIT_BROOM_FORCE=1` to bypass a warning. Existing hooks are backed up as `<hook>.git-broom-backup` before Git Broom installs its wrapper.
 
+> **Note:** Installed hooks use `#!/bin/sh` shell scripts. On Windows, Git Bash or WSL must be used to execute them. Git for Windows uses Git Bash by default, so hooks will work in standard Git for Windows installations.
+
 ## Safety
 
 Git Broom is designed with safety as the top priority:
