@@ -174,6 +174,27 @@ describe('resolveConfig', () => {
     )
   })
 
+  it('rejects adjacent unbounded ticket quantifiers', () => {
+    const cwd = makeTempDir()
+    const configPath = join(cwd, '.gitbroomrc')
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        branchNaming: {
+          ticketPattern: 'a{1,}a{1,}!',
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming?.ticketPattern).toBe('[A-Z]+-\\d+')
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining(`Ignoring invalid config file at ${configPath}`),
+    )
+  })
+
   it('ignores invalid schedule configuration and falls back safely', () => {
     const cwd = makeTempDir()
     const configPath = join(cwd, '.gitbroomrc')

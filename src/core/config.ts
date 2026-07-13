@@ -12,6 +12,103 @@ export const DEFAULT_BRANCH_NAMING: BranchNamingConfig = {
   ignorePatterns: [],
 }
 
+function classMayMatchHyphen(value: string, start: number): boolean {
+  let escaped = false
+  for (let index = start + 1; index < value.length; index++) {
+    const character = value[index]
+    if (escaped) {
+      if (character !== 'd') return true
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (character === ']') return false
+    if (character === '-' && (index === start + 1 || value[index + 1] === ']')) {
+      return true
+    }
+  }
+  return false
+}
+
+function hasAmbiguousUnboundedQuantifiers(value: string): boolean {
+  let inCharacterClass = false
+  let escaped = false
+  let hasUnboundedQuantifier = false
+  let hasLiteralHyphenSinceUnbounded = false
+  let previousAtomIsHyphen = false
+  let hasBroadAtom = false
+
+  const recordUnboundedQuantifier = () => {
+    if (previousAtomIsHyphen) return true
+    if (hasUnboundedQuantifier && (!hasLiteralHyphenSinceUnbounded || hasBroadAtom)) {
+      return true
+    }
+    hasUnboundedQuantifier = true
+    hasLiteralHyphenSinceUnbounded = false
+    previousAtomIsHyphen = false
+    return false
+  }
+
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]
+    if (escaped) {
+      if (character !== 'd' && character !== '-') hasBroadAtom = true
+      previousAtomIsHyphen = character === '-'
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (character === '[') {
+      inCharacterClass = true
+      hasBroadAtom ||= value[index + 1] === '^' || classMayMatchHyphen(value, index)
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (character === ']') {
+      inCharacterClass = false
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (inCharacterClass) continue
+
+    if (character === '.') {
+      hasBroadAtom = true
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (character === '*' || character === '+') {
+      if (recordUnboundedQuantifier()) return true
+      continue
+    }
+    if (character === '?') {
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (character === '{') {
+      const end = value.indexOf('}', index + 1)
+      if (end === -1) return false
+      const quantifier = value.slice(index + 1, end)
+      if (quantifier.endsWith(',') && recordUnboundedQuantifier()) return true
+      index = end
+      continue
+    }
+    if (character === '-') {
+      hasLiteralHyphenSinceUnbounded = true
+      previousAtomIsHyphen = true
+      continue
+    }
+    previousAtomIsHyphen = false
+  }
+
+  return false
+}
+
 // Ticket patterns are intentionally limited to a small, bounded regex subset so
 // malformed repository config cannot stall a Git hook with catastrophic backtracking.
 export function isSafeTicketPattern(value: string): boolean {
@@ -24,6 +121,8 @@ export function isSafeTicketPattern(value: string): boolean {
   } catch {
     return false
   }
+
+  if (hasAmbiguousUnboundedQuantifiers(value)) return false
 
   let inCharacterClass = false
   let escaped = false
