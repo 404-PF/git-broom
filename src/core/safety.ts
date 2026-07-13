@@ -8,7 +8,8 @@ export function isProtectedBranch(branch: string, config: BroomConfig): boolean 
   const allProtected = [...new Set([...config.protectedBranches, ...PROTECTED_PATTERNS])]
   return allProtected.some((pattern) => {
     if (pattern.includes('*')) {
-      const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`)
+      const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(`^${escaped.replace(/\*/g, '.*')}$`)
       return regex.test(branch)
     }
     return pattern === branch

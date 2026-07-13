@@ -37,7 +37,20 @@ const branchNamingSchema = z.object({
     }, 'must be a valid regular expression')
     .default(DEFAULT_BRANCH_NAMING.ticketPattern),
   allowedPrefixes: z.array(z.string().min(1)).default([...DEFAULT_BRANCH_NAMING.allowedPrefixes]),
-  ignorePatterns: z.array(z.string().min(1)).default([...DEFAULT_BRANCH_NAMING.ignorePatterns]),
+  ignorePatterns: z.array(z.string().min(1))
+    .refine(
+      (patterns) => patterns.every((pattern) => {
+        let depth = 0
+        for (const char of pattern) {
+          if (char === '[') depth++
+          else if (char === ']') depth--
+          if (depth < 0) return false
+        }
+        return depth === 0
+      }),
+      'ignorePatterns contain unmatched brackets (glob uses *, ?, not [...])',
+    )
+    .default([...DEFAULT_BRANCH_NAMING.ignorePatterns]),
 })
 
 const configSchema = z.object({

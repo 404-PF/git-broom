@@ -122,7 +122,7 @@ function renderHookScript(hook: HookName): string {
     "fi",
     "status=$?",
     'if [ "$status" -ne 0 ]; then',
-    '  echo "Warning: git-broom hooks check failed or is unavailable; continuing." >&2',
+    `  echo "Warning: git-broom hooks check failed for ${hook}; continuing." >&2`,
     "  exit 0",
     "fi",
     "",
