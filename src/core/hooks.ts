@@ -1,5 +1,4 @@
 import {
-  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -151,7 +150,6 @@ export async function installHooks(cwd?: string): Promise<HookInstallResult> {
       encoding: "utf8",
       mode: 0o755,
     });
-    chmodSync(hookPath, 0o755);
     installed.push(hook);
   }
 
