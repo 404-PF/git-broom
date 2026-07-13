@@ -120,3 +120,4 @@ describe("branch naming hooks", () => {
     ).toContain("# existing hook");
   });
 });
+

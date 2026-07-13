@@ -77,7 +77,9 @@ function getBranchNamingReasons(
 
   if (rules.requireTicket) {
     try {
-      if (!new RegExp(rules.ticketPattern).test(branch)) {
+      // Compile once per branch — ticketPattern is validated at config parse time
+      const ticketRegex = new RegExp(rules.ticketPattern);
+      if (!ticketRegex.test(branch)) {
         reasons.push(`missing a ticket number matching ${rules.ticketPattern}`);
       }
     } catch {
@@ -102,8 +104,9 @@ export function getBranchNamingWarnings(
   return reasons.length > 0 ? [{ branch, reasons }] : [];
 }
 
-// Uses /bin/sh for maximum portability across Unix-like systems and Windows (via Git Bash/WSL)
+// Git always invokes hooks via /bin/sh; this is a Git constraint, not a choice.
 function renderHookScript(hook: HookName): string {
+  // hook is a HOOK_NAMES enum literal — safe to interpolate without shell quoting
   return [
     "#!/bin/sh",
     HOOK_MARKER,
