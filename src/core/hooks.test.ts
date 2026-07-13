@@ -1,8 +1,12 @@
 import {
+  chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  statSync,
+  symlinkSync,
   writeFileSync,
 } from "fs";
 import { tmpdir } from "os";
@@ -62,6 +66,23 @@ describe("branch naming hooks", () => {
     expect(
       getBranchNamingWarnings("feature/PROJ-42-cleanup", baseConfig),
     ).toEqual([]);
+  });
+
+  it("rejects unsafe ticket patterns without evaluating them", () => {
+    expect(
+      getBranchNamingWarnings("feature/" + "a".repeat(100) + "!", {
+        ...baseConfig,
+        branchNaming: {
+          ...baseConfig.branchNaming!,
+          ticketPattern: "(a+)+$",
+        },
+      }),
+    ).toEqual([
+      {
+        branch: "feature/" + "a".repeat(100) + "!",
+        reasons: ["uses an invalid or unsafe ticket pattern in .gitbroomrc"],
+      },
+    ]);
   });
 
   it("does not warn for protected branches", () => {
@@ -127,12 +148,35 @@ describe("branch naming hooks", () => {
     const existingPreCommit = join(existingHooksDirectory, "pre-commit");
     mkdirSync(existingHooksDirectory);
     writeFileSync(existingPreCommit, "# existing hook\n");
+    if (process.platform !== "win32") chmodSync(existingPreCommit, 0o755);
     vi.mocked(gitMocks.getGitPath).mockResolvedValue(existingHooksDirectory);
 
     await installHooks(existingCwd);
     expect(
       readFileSync(`${existingPreCommit}.git-broom-backup`, "utf8"),
     ).toContain("# existing hook");
+    if (process.platform !== "win32") {
+      expect(statSync(`${existingPreCommit}.git-broom-backup`).mode & 0o111).not.toBe(0);
+    }
   });
-});
 
+  it.skipIf(process.platform === "win32")(
+    "preserves symlinked hooks without overwriting their targets",
+    async () => {
+      const cwd = makeTempDir();
+      const hooksDirectory = join(cwd, "hooks");
+      const sharedHook = join(cwd, "shared-pre-commit");
+      const existingPreCommit = join(hooksDirectory, "pre-commit");
+      mkdirSync(hooksDirectory);
+      writeFileSync(sharedHook, "# shared hook\n");
+      symlinkSync(sharedHook, existingPreCommit);
+      vi.mocked(gitMocks.getGitPath).mockResolvedValue(hooksDirectory);
+
+      await installHooks(cwd);
+
+      expect(lstatSync(`${existingPreCommit}.git-broom-backup`).isSymbolicLink()).toBe(true);
+      expect(readFileSync(sharedHook, "utf8")).toBe("# shared hook\n");
+      expect(lstatSync(existingPreCommit).isSymbolicLink()).toBe(false);
+    },
+  );
+});

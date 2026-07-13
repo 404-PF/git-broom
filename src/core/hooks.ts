@@ -1,13 +1,13 @@
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   writeFileSync,
 } from "fs";
 import { join } from "path";
 import type { BranchNamingConfig, BroomConfig } from "../types/index.js";
-import { DEFAULT_BRANCH_NAMING } from "./config.js";
+import { DEFAULT_BRANCH_NAMING, isSafeTicketPattern } from "./config.js";
 import { getGitPath } from "./git.js";
 import { isProtectedBranch } from "./safety.js";
 
@@ -76,14 +76,18 @@ function getBranchNamingReasons(
   }
 
   if (rules.requireTicket) {
-    try {
+    if (!isSafeTicketPattern(rules.ticketPattern)) {
+      reasons.push("uses an invalid or unsafe ticket pattern in .gitbroomrc");
+    } else {
       // Compile once per branch — ticketPattern is validated at config parse time
-      const ticketRegex = new RegExp(rules.ticketPattern);
-      if (!ticketRegex.test(branch)) {
-        reasons.push(`missing a ticket number matching ${rules.ticketPattern}`);
+      try {
+        const ticketRegex = new RegExp(rules.ticketPattern);
+        if (!ticketRegex.test(branch)) {
+          reasons.push(`missing a ticket number matching ${rules.ticketPattern}`);
+        }
+      } catch {
+        reasons.push("uses an invalid or unsafe ticket pattern in .gitbroomrc");
       }
-    } catch {
-      reasons.push("uses an invalid ticket pattern in .gitbroomrc");
     }
   }
 
@@ -146,7 +150,12 @@ export async function installHooks(cwd?: string): Promise<HookInstallResult> {
       }
 
       const backupPath = `${hookPath}.git-broom-backup`;
-      if (!existsSync(backupPath)) copyFileSync(hookPath, backupPath);
+      if (existsSync(backupPath)) {
+        throw new Error(
+          `Refusing to overwrite ${hookPath}: backup already exists at ${backupPath}`,
+        );
+      }
+      renameSync(hookPath, backupPath);
     }
 
     writeFileSync(hookPath, renderHookScript(hook), {

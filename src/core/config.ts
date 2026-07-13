@@ -12,6 +12,58 @@ export const DEFAULT_BRANCH_NAMING: BranchNamingConfig = {
   ignorePatterns: [],
 }
 
+// Ticket patterns are intentionally limited to a small, bounded regex subset so
+// malformed repository config cannot stall a Git hook with catastrophic backtracking.
+export function isSafeTicketPattern(value: string): boolean {
+  if (value.length > 128 || /[()|]/.test(value) || /\\[1-9]/.test(value)) {
+    return false
+  }
+
+  try {
+    new RegExp(value)
+  } catch {
+    return false
+  }
+
+  let inCharacterClass = false
+  let escaped = false
+  let quantifierCount = 0
+
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (character === '[') {
+      inCharacterClass = true
+      continue
+    }
+    if (character === ']') {
+      inCharacterClass = false
+      continue
+    }
+    if (!inCharacterClass && '*+?'.includes(character)) {
+      quantifierCount++
+    } else if (!inCharacterClass && character === '{') {
+      const end = value.indexOf('}', index + 1)
+      if (end === -1 || !/^\d+(,\d*)?$/.test(value.slice(index + 1, end))) {
+        return false
+      }
+      quantifierCount++
+      index = end
+    }
+
+    if (quantifierCount > 2) return false
+  }
+
+  return !inCharacterClass && !escaped
+}
+
 function cloneDefaultBranchNaming(): BranchNamingConfig {
   return structuredClone(DEFAULT_BRANCH_NAMING)
 }
@@ -27,14 +79,7 @@ const branchNamingSchema = z.object({
   ticketPattern: z
     .string()
     .min(1)
-    .refine((value) => {
-      try {
-        new RegExp(value)
-        return true
-      } catch {
-        return false
-      }
-    }, 'must be a valid regular expression')
+    .refine(isSafeTicketPattern, 'must be a valid safe ticket pattern')
     .default(DEFAULT_BRANCH_NAMING.ticketPattern),
   allowedPrefixes: z.array(z.string().min(1)).default([...DEFAULT_BRANCH_NAMING.allowedPrefixes]),
   ignorePatterns: z.array(z.string().min(1))

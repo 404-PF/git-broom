@@ -139,7 +139,7 @@ Branch naming warnings are enabled by default for non-protected branches. Custom
 | --- | --- | --- |
 | `requireTicket` | Require a ticket matching `ticketPattern` in the branch name. | Boolean |
 | `requirePrefix` | Require the first branch path segment to be in `allowedPrefixes`. | Boolean |
-| `ticketPattern` | Regular expression used to find a ticket identifier. | Regex string |
+| `ticketPattern` | Safe regular expression used to find a ticket identifier. | Safe regex string (no groups or alternation) |
 | `allowedPrefixes` | Prefixes accepted as the first branch path segment. | Array of strings |
 | `ignorePatterns` | Branch globs excluded from naming warnings. | Array of glob strings (`*` and `?` supported) |
 
