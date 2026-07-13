@@ -130,6 +130,33 @@ describe('resolveConfig', () => {
     })
   })
 
+  it('falls back to default branch naming when ticketPattern is invalid', () => {
+    const cwd = makeTempDir()
+    const configPath = join(cwd, '.gitbroomrc')
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        branchNaming: {
+          ticketPattern: '[',
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming).toEqual({
+      requireTicket: true,
+      requirePrefix: true,
+      ticketPattern: '[A-Z]+-\\d+',
+      allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
+      ignorePatterns: [],
+    })
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining(`Ignoring invalid config file at ${configPath}`),
+    )
+  })
+
   it('ignores invalid schedule configuration and falls back safely', () => {
     const cwd = makeTempDir()
     const configPath = join(cwd, '.gitbroomrc')
