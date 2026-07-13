@@ -50,7 +50,8 @@ function matchesPattern(value: string, pattern: string): boolean {
       starMatchIndex = valueIndex;
     } else if (starIndex !== -1) {
       patternIndex = starIndex + 1;
-      valueIndex = ++starMatchIndex;
+      starMatchIndex += 1;
+      valueIndex = starMatchIndex;
     } else {
       return false;
     }
@@ -68,7 +69,7 @@ function getBranchNamingReasons(
 
   if (rules.requirePrefix) {
     const prefix = branch.split("/")[0];
-    if (!rules.allowedPrefixes.includes(prefix ?? "")) {
+    if (!rules.allowedPrefixes.includes(prefix)) {
       reasons.push(
         `missing a recognized prefix (${rules.allowedPrefixes.join(", ")})`,
       );
@@ -102,6 +103,7 @@ export function getBranchNamingWarnings(
   return reasons.length > 0 ? [{ branch, reasons }] : [];
 }
 
+// Uses /bin/sh for maximum portability across Unix-like systems and Windows (via Git Bash/WSL)
 function renderHookScript(hook: HookName): string {
   return [
     "#!/bin/sh",

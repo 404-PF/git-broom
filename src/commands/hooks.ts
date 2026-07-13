@@ -26,7 +26,13 @@ export async function hooksCheckCommand(
   options: { hook: string; force?: boolean; hookArgs?: string[] },
   cwd?: string,
 ): Promise<HookCheckResult> {
-  const hook: HookName = isHookName(options.hook) ? options.hook : "pre-commit";
+  let hook: HookName;
+  if (isHookName(options.hook)) {
+    hook = options.hook;
+  } else {
+    logger.warn(`Unknown hook name "${options.hook}", falling back to "pre-commit"`);
+    hook = "pre-commit";
+  }
   const branch = await getCurrentBranch(cwd);
   const isBranchCheckout =
     hook !== "post-checkout" ||
