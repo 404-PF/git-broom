@@ -2,11 +2,199 @@ import { z } from 'zod'
 import { readFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { logger } from '../utils/logger.js'
-import type { BroomConfig } from '../types/index.js'
+import type { BranchNamingConfig, BroomConfig } from '../types/index.js'
+
+export const DEFAULT_BRANCH_NAMING: BranchNamingConfig = {
+  requireTicket: true,
+  requirePrefix: true,
+  ticketPattern: '[A-Z]+-\\d+',
+  allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
+  ignorePatterns: [],
+}
+
+function classMayMatchHyphen(value: string, start: number): boolean {
+  let escaped = false
+  for (let index = start + 1; index < value.length; index++) {
+    const character = value[index]
+    if (escaped) {
+      if (character !== 'd') return true
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (character === ']') return false
+    if (character === '-' && (index === start + 1 || value[index + 1] === ']')) {
+      return true
+    }
+  }
+  return false
+}
+
+function hasAmbiguousUnboundedQuantifiers(value: string): boolean {
+  let inCharacterClass = false
+  let escaped = false
+  let hasUnboundedQuantifier = false
+  let hasLiteralHyphenSinceUnbounded = false
+  let previousAtomIsHyphen = false
+  let hasBroadAtom = false
+
+  const recordUnboundedQuantifier = () => {
+    if (previousAtomIsHyphen) return true
+    if (hasUnboundedQuantifier && (!hasLiteralHyphenSinceUnbounded || hasBroadAtom)) {
+      return true
+    }
+    hasUnboundedQuantifier = true
+    hasLiteralHyphenSinceUnbounded = false
+    previousAtomIsHyphen = false
+    return false
+  }
+
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]
+    if (escaped) {
+      if (character !== 'd' && character !== '-') hasBroadAtom = true
+      previousAtomIsHyphen = character === '-'
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (character === '[') {
+      inCharacterClass = true
+      hasBroadAtom ||= value[index + 1] === '^' || classMayMatchHyphen(value, index)
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (character === ']') {
+      inCharacterClass = false
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (inCharacterClass) continue
+
+    if (character === '.') {
+      hasBroadAtom = true
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (character === '*' || character === '+') {
+      if (recordUnboundedQuantifier()) return true
+      continue
+    }
+    if (character === '?') {
+      previousAtomIsHyphen = false
+      continue
+    }
+    if (character === '{') {
+      const end = value.indexOf('}', index + 1)
+      if (end === -1) return false
+      const quantifier = value.slice(index + 1, end)
+      if (quantifier.endsWith(',') && recordUnboundedQuantifier()) return true
+      index = end
+      continue
+    }
+    if (character === '-') {
+      hasLiteralHyphenSinceUnbounded = true
+      previousAtomIsHyphen = true
+      continue
+    }
+    previousAtomIsHyphen = false
+  }
+
+  return false
+}
+
+// Ticket patterns are intentionally limited to a small, bounded regex subset so
+// malformed repository config cannot stall a Git hook with catastrophic backtracking.
+export function isSafeTicketPattern(value: string): boolean {
+  if (value.length > 128 || /[()|]/.test(value) || /\\[1-9]/.test(value)) {
+    return false
+  }
+
+  try {
+    new RegExp(value)
+  } catch {
+    return false
+  }
+
+  if (hasAmbiguousUnboundedQuantifiers(value)) return false
+
+  let inCharacterClass = false
+  let escaped = false
+  let quantifierCount = 0
+
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (character === '[') {
+      inCharacterClass = true
+      continue
+    }
+    if (character === ']') {
+      inCharacterClass = false
+      continue
+    }
+    if (!inCharacterClass && '*+?'.includes(character)) {
+      quantifierCount++
+    } else if (!inCharacterClass && character === '{') {
+      const end = value.indexOf('}', index + 1)
+      if (end === -1 || !/^\d+(,\d*)?$/.test(value.slice(index + 1, end))) {
+        return false
+      }
+      quantifierCount++
+      index = end
+    }
+
+    if (quantifierCount > 2) return false
+  }
+
+  return !inCharacterClass && !escaped
+}
+
+function cloneDefaultBranchNaming(): BranchNamingConfig {
+  return structuredClone(DEFAULT_BRANCH_NAMING)
+}
 
 const scheduleSchema = z.object({
   interval: z.enum(['daily', 'weekly', 'monthly']),
   logFile: z.string().min(1).optional(),
+})
+
+const branchNamingSchema = z.object({
+  requireTicket: z.boolean().default(DEFAULT_BRANCH_NAMING.requireTicket),
+  requirePrefix: z.boolean().default(DEFAULT_BRANCH_NAMING.requirePrefix),
+  ticketPattern: z
+    .string()
+    .min(1)
+    .refine(isSafeTicketPattern, 'must be a valid safe ticket pattern')
+    .default(DEFAULT_BRANCH_NAMING.ticketPattern),
+  allowedPrefixes: z.array(z.string().min(1)).default([...DEFAULT_BRANCH_NAMING.allowedPrefixes]),
+  ignorePatterns: z.array(z.string().min(1))
+    .refine(
+      (patterns) => patterns.every((pattern) => {
+        let depth = 0
+        for (const char of pattern) {
+          if (char === '[') depth++
+          else if (char === ']') depth--
+          if (depth < 0) return false
+        }
+        return depth === 0
+      }),
+      'ignorePatterns contain unmatched brackets (glob uses *, ?, not [...])',
+    )
+    .default([...DEFAULT_BRANCH_NAMING.ignorePatterns]),
 })
 
 const configSchema = z.object({
@@ -18,17 +206,21 @@ const configSchema = z.object({
   verbose: z.boolean().default(false),
   json: z.boolean().default(false),
   schedule: scheduleSchema.optional(),
+  branchNaming: branchNamingSchema.default(cloneDefaultBranchNaming),
 })
 
-const defaultConfig: BroomConfig = {
-  protectedBranches: ['main', 'master', 'develop'],
-  staleDays: 90,
-  dryRun: true,
-  aggressive: false,
-  skipConfirmation: false,
-  verbose: false,
-  json: false,
-  schedule: undefined,
+function createDefaultConfig(): BroomConfig {
+  return {
+    protectedBranches: ['main', 'master', 'develop'],
+    staleDays: 90,
+    dryRun: true,
+    aggressive: false,
+    skipConfirmation: false,
+    verbose: false,
+    json: false,
+    schedule: undefined,
+    branchNaming: cloneDefaultBranchNaming(),
+  }
 }
 
 function findConfigFile(startDir: string): string | null {
@@ -68,7 +260,7 @@ export function resolveConfig(cwd: string, cliOverrides: Partial<BroomConfig>): 
   const fileConfig = configFile ? parseConfigFile(configFile) : {}
 
   return {
-    ...defaultConfig,
+    ...createDefaultConfig(),
     ...fileConfig,
     ...cliOverrides,
   }

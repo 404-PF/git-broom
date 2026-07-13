@@ -49,6 +49,14 @@ export interface ScheduleConfig {
   logFile?: string
 }
 
+export interface BranchNamingConfig {
+  requireTicket: boolean
+  requirePrefix: boolean
+  ticketPattern: string
+  allowedPrefixes: string[]
+  ignorePatterns: string[]
+}
+
 export interface BroomConfig {
   protectedBranches: string[]
   staleDays: number
@@ -58,6 +66,7 @@ export interface BroomConfig {
   verbose: boolean
   json: boolean
   schedule?: ScheduleConfig
+  branchNaming?: BranchNamingConfig
 }
 
 export type BranchCategory = 'merged' | 'stale' | 'active' | 'protected'
