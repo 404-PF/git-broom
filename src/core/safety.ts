@@ -41,7 +41,7 @@ export function filterSafeToDelete(
 export async function confirmAction(message: string, skip: boolean): Promise<boolean> {
   if (skip) return true
   logger.info(message)
-  return confirm({ message: 'Proceed? (y/N)' })
+  return confirm({ message: 'Proceed?' })
 }
 
 export function dryRunWarning() {
