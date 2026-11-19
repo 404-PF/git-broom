@@ -10,6 +10,7 @@ A safety-first CLI tool to automatically clean up stale branches, prune dangling
 - **Stale branch detection** — configurable inactivity threshold (default: 90 days)
 - **Dangling object pruning** — clean up unreachable commits, trees, and blobs
 - **Repository status report** — quick overview of branch hygiene and `.git` size
+- **Branch naming hooks** — warn about branch names that lack a ticket or recognized prefix
 
 ## Installation
 
@@ -30,6 +31,7 @@ git-broom status          # Show repository hygiene report
 git-broom clean           # Clean stale branches (dry-run by default)
 git-broom branches        # List branches by state
 git-broom objects         # Inspect dangling objects
+git-broom hook install    # Install branch naming hooks
 ```
 
 ### Global Options
@@ -118,6 +120,38 @@ Create a `.gitbroomrc` file in your repository or home directory:
   "verbose": false
 }
 ```
+
+Branch naming warnings are enabled by default for non-protected branches. Customize them with `branchNaming`:
+
+```json
+{
+  "branchNaming": {
+    "requireTicket": true,
+    "requirePrefix": true,
+    "ticketPattern": "[A-Z]+-\\d+",
+    "allowedPrefixes": ["feature", "fix", "chore"],
+    "ignorePatterns": ["dependabot/*"]
+  }
+}
+```
+
+| Field | Purpose | Expected value |
+| --- | --- | --- |
+| `requireTicket` | Require a ticket matching `ticketPattern` in the branch name. | Boolean |
+| `requirePrefix` | Require the first branch path segment to be in `allowedPrefixes`. | Boolean |
+| `ticketPattern` | Safe regular expression used to find a ticket identifier. | Safe regex string (no groups or alternation) |
+| `allowedPrefixes` | Prefixes accepted as the first branch path segment. | Array of strings |
+| `ignorePatterns` | Branch globs excluded from naming warnings. | Array of glob strings (`*` and `?` supported) |
+
+Install `post-checkout`, `pre-commit`, and `pre-push` hooks with:
+
+```bash
+git-broom hook install
+```
+
+The hooks warn but do not block Git operations. Use Git's `--no-verify` option, `git-broom hooks check --force`, or set `GIT_BROOM_FORCE=1` to bypass a warning. Existing hooks are backed up as `<hook>.git-broom-backup` before Git Broom installs its wrapper.
+
+> **Note:** Installed hooks use `#!/bin/sh` shell scripts. On Windows, Git Bash or WSL must be used to execute them. Git for Windows uses Git Bash by default, so hooks will work in standard Git for Windows installations.
 
 ## Safety
 

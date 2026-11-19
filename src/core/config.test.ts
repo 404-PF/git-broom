@@ -58,6 +58,23 @@ describe('resolveConfig', () => {
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
+  it('does not share default branch naming state between resolutions', () => {
+    const cwd = makeTempDir()
+    const firstConfig = resolveConfig(cwd, {})
+    const secondConfig = resolveConfig(cwd, {})
+
+    firstConfig.branchNaming!.allowedPrefixes.push('custom')
+    firstConfig.branchNaming!.ignorePatterns.push('generated/*')
+
+    expect(secondConfig.branchNaming).toEqual({
+      requireTicket: true,
+      requirePrefix: true,
+      ticketPattern: '[A-Z]+-\\d+',
+      allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
+      ignorePatterns: [],
+    })
+  })
+
   it('allows CLI overrides to omit json so config-backed JSON stays enabled', () => {
     const cwd = makeTempDir()
     writeFileSync(join(cwd, '.gitbroomrc'), JSON.stringify({ json: true }))
@@ -86,6 +103,96 @@ describe('resolveConfig', () => {
       interval: 'daily',
       logFile: 'logs/git-broom.log',
     })
+  })
+
+  it('parses configurable branch naming rules', () => {
+    const cwd = makeTempDir()
+    writeFileSync(
+      join(cwd, '.gitbroomrc'),
+      JSON.stringify({
+        branchNaming: {
+          requireTicket: false,
+          requirePrefix: true,
+          allowedPrefixes: ['work'],
+          ignorePatterns: ['dependabot/*'],
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming).toEqual({
+      requireTicket: false,
+      requirePrefix: true,
+      ticketPattern: '[A-Z]+-\\d+',
+      allowedPrefixes: ['work'],
+      ignorePatterns: ['dependabot/*'],
+    })
+  })
+
+  it('falls back to default branch naming when ticketPattern is invalid', () => {
+    const cwd = makeTempDir()
+    const configPath = join(cwd, '.gitbroomrc')
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        branchNaming: {
+          ticketPattern: '[',
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming).toEqual({
+      requireTicket: true,
+      requirePrefix: true,
+      ticketPattern: '[A-Z]+-\\d+',
+      allowedPrefixes: ['feature', 'fix', 'bugfix', 'chore', 'docs', 'refactor', 'test'],
+      ignorePatterns: [],
+    })
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining(`Ignoring invalid config file at ${configPath}`),
+    )
+  })
+
+  it('ignores config with an unsafe ticketPattern', () => {
+    const cwd = makeTempDir()
+    const configPath = join(cwd, '.gitbroomrc')
+    writeFileSync(
+      configPath,
+      JSON.stringify({ branchNaming: { ticketPattern: '(a+)+$' } }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming?.ticketPattern).toBe('[A-Z]+-\\d+')
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining(`Ignoring invalid config file at ${configPath}`),
+    )
+  })
+
+  it('rejects adjacent unbounded ticket quantifiers', () => {
+    const cwd = makeTempDir()
+    const configPath = join(cwd, '.gitbroomrc')
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        branchNaming: {
+          ticketPattern: 'a{1,}a{1,}!',
+        },
+      }),
+    )
+
+    const config = resolveConfig(cwd, {})
+
+    expect(config.branchNaming?.ticketPattern).toBe('[A-Z]+-\\d+')
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining(`Ignoring invalid config file at ${configPath}`),
+    )
   })
 
   it('ignores invalid schedule configuration and falls back safely', () => {
